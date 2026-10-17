@@ -45,7 +45,7 @@ export type Scene = {
 
 export const defaultScene: Scene = {
   format: '4:5',
-  bg: '#f4f1ea',
+  bg: '#0e0e0e', // a very subtle off-black, just apart from the page
   pieces: [],
   texture: { grain: 0.35, paper: 0.25, dots: 0, fade: 0.1 },
   outside: 'hide',
@@ -58,8 +58,8 @@ export const SWATCHES = [
 ] as const
 
 export const BG_SWATCHES = [
-  ['#f4f1ea', 'Paper'], ['#ffffff', 'White'], ['#e9e4d8', 'Cream'], ['#d9d2c4', 'Stone'],
-  ['#1b1b1b', 'Ink'], ['#000000', 'Black'], ['#2f6b35', 'Green'],
+  ['#0e0e0e', 'Off black'], ['#f4f1ea', 'Paper'], ['#ffffff', 'White'], ['#e9e4d8', 'Cream'], ['#d9d2c4', 'Stone'],
+  ['#1b1b1b', 'Ink'], ['#2f6b35', 'Green'],
 ] as const
 
 export const height = (s: Scene) => 1 / FORMATS[s.format]

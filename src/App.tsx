@@ -283,7 +283,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => fileInput.current?.click()}
-            className="pointer-events-auto flex flex-col items-center gap-3 rounded-2xl p-8 text-neutral-500 outline-none transition-colors hover:text-neutral-800 focus-visible:ring-2 focus-visible:ring-ring"
+            className="pointer-events-auto flex flex-col items-center gap-3 rounded-2xl p-8 text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ImagePlus className="size-6" strokeWidth={1.5} />
             <span className="text-xs">Drop images, or add a shape</span>
