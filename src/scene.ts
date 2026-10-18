@@ -62,10 +62,10 @@ export const defaultScene: Scene = {
   pieces: [],
   texture: {
     layers: [
-      { source: 'grain', blend: 'overlay', amount: 0.3, scale: 1, colour: 'neutral' },
-      { source: 'paper', blend: 'multiply', amount: 0.2, scale: 1, colour: 'neutral' },
+      { source: 'grain', blend: 'overlay', amount: 0.15, scale: 1, colour: 'neutral' },
+      { source: 'paper', blend: 'multiply', amount: 0.1, scale: 1, colour: 'neutral' },
     ],
-    fade: 0.1,
+    fade: 0.05,
   },
   outside: 'hide',
   tilt: false,
@@ -98,14 +98,14 @@ const base = (p: Partial<Piece>): Piece => ({
 // fitted inside 85% of it, whatever their shape
 export function imagePiece(imageId: string, aspect: number, at: { x: number; y: number }, artH: number): Piece {
   const w = Math.min(0.85, 0.85 * artH * aspect)
-  return base({ kind: 'image', imageId, x: at.x, y: at.y, w, h: w / aspect, texture: 0.6, show: 0.08 })
+  return base({ kind: 'image', imageId, x: at.x, y: at.y, w, h: w / aspect, texture: 0.35, show: 0.08 })
 }
 
 export function shapePiece(kind: Exclude<Kind, 'image'>, at: { x: number; y: number }, cross: CrossStyle = 'plus'): Piece {
   switch (kind) {
-    case 'block': return base({ kind, x: at.x, y: at.y, w: 0.42, h: 0.62, color: '#2f6b35', texture: 0.5 })
-    case 'circle': return base({ kind, x: at.x, y: at.y, w: 0.36, h: 0.36, color: '#2f6fd6', texture: 0.4, show: 0.1 })
-    case 'grid': return base({ kind, x: at.x, y: at.y, w: 0.6, h: 0.22, color: '#1b1b1b', texture: 0.3 })
+    case 'block': return base({ kind, x: at.x, y: at.y, w: 0.42, h: 0.62, color: '#2f6b35', texture: 0.3 })
+    case 'circle': return base({ kind, x: at.x, y: at.y, w: 0.36, h: 0.36, color: '#2f6fd6', texture: 0.25, show: 0.1 })
+    case 'grid': return base({ kind, x: at.x, y: at.y, w: 0.6, h: 0.22, color: '#1b1b1b', texture: 0.2 })
     case 'cross': return base({ kind, x: at.x, y: at.y, w: 0.06, h: 0.06, color: '#1b1b1b', cross })
   }
 }
