@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { arrivalLength, drawScene, hitPiece, type Img } from '@/render'
 import type { TextureSource } from '@/textures'
 import { height, type Piece, type Scene } from '@/scene'
@@ -47,6 +47,16 @@ type Gesture =
   | { mode: 'rotate'; id: string; a0: number; r0: number }
   | { mode: 'pinch'; id: string; d0: number; a0: number; w0: number; h0: number; r0: number }
 
+// The notch inset in px (env() only resolves on a real property, so measure a probe)
+function safeAreaTop() {
+  const el = document.createElement('div')
+  el.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top, 0px)'
+  document.body.appendChild(el)
+  const v = parseFloat(getComputedStyle(el).paddingTop) || 0
+  el.remove()
+  return v
+}
+
 export function Stage({ scene, images, textures, version, selected, onSelect, onChange, onCommit, onDropFiles, inset, phone, play, onPlayEnd }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight })
@@ -62,12 +72,17 @@ export function Stage({ scene, images, textures, version, selected, onSelect, on
   }, [])
 
   // The artboard fitted into the space left by the bars and any open panel
-  const margin = phone ? { l: 16, r: 64, t: 20, b: 72 } : { l: 72, r: 72, t: 36, b: 104 }
+  // On phones it lines up with the panel rail: the same 12px edge, a 12px gap before the rail
+  // (48px wide), and its top level with the rail's, below the notch
+  const safeTop = useMemo(() => (phone ? safeAreaTop() : 0), [phone, size.w, size.h])
+  const margin = phone ? { l: 12, r: 12 + 48 + 12, t: 12 + safeTop, b: 72 } : { l: 72, r: 72, t: 36, b: 104 }
   const availW = Math.max(80, size.w - margin.l - margin.r - inset.right)
   const availH = Math.max(80, size.h - margin.t - margin.b - (inset.bottom ? inset.bottom - margin.b + 24 : 0))
   const H = height(scene)
   const unit = Math.min(availW, availH / H)
-  const ab = { x: margin.l + (availW - unit) / 2, y: margin.t + (availH - unit * H) / 2, w: unit, h: unit * H }
+  const ab = phone
+    ? { x: margin.l, y: margin.t, w: unit, h: unit * H }
+    : { x: margin.l + (availW - unit) / 2, y: margin.t + (availH - unit * H) / 2, w: unit, h: unit * H }
 
   // Arrival preview
   useEffect(() => {
