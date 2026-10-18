@@ -6,7 +6,7 @@ import { PANEL_W } from './layout'
 type Panel<T extends string> = { id: T; label: string; icon: LucideIcon }
 
 // The panel buttons, top right: a column on desktop (moving aside for the open panel), a row on
-// phones (clear of the notch), so the bottom is left to the actions and the panel opens below.
+// phones (clear of the notch, just the icons), so the bottom is left to the actions.
 export function PanelRail<T extends string>({
   panels,
   open,
@@ -21,7 +21,7 @@ export function PanelRail<T extends string>({
   return (
     <nav
       aria-label="Panels"
-      className={cn('panel fixed z-60 flex gap-1 rounded-full p-1', phone ? 'flex-row' : 'flex-col transition-[right] duration-200')}
+      className={cn('panel fixed z-60 flex gap-1 rounded-full p-1', phone ? 'flex-row max-sm:border-transparent max-sm:bg-transparent max-sm:backdrop-filter-none' : 'flex-col transition-[right] duration-200')}
       style={phone ? { top: 'calc(env(safe-area-inset-top, 0px) + 12px)', right: 12 } : { top: 12, right: open ? PANEL_W + 12 : 12 }}
     >
       {panels.map(p => (
