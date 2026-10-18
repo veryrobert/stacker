@@ -1,3 +1,5 @@
+import type { TextureLayer } from './textures'
+
 // The collage as data. Positions and sizes are in artboard-width units: x runs 0..1 across the
 // artboard, y runs 0..1/ratio down it, so a layout survives any export size. Pieces may sit
 // partly or wholly outside the artboard; exports crop to it.
@@ -21,6 +23,8 @@ export type Piece = {
   show: number // 0..1, how much shows through from underneath
   blend: 'normal' | 'multiply' // multiply lets colours mix where pieces overlap
   edge: 'clean' | 'torn' // images and blocks: a straight cut, or a torn edge
+  adjust: { sat: number; con: number; bri: number } // images: 1 = as shot
+  tex: TextureLayer | null // a texture printed onto this piece
   cross: CrossStyle
 }
 
@@ -33,7 +37,8 @@ export const FORMATS = {
 } as const
 export type Format = keyof typeof FORMATS
 
-export type Texture = { grain: number; paper: number; dots: number; fade: number }
+// The artboard's finish: texture layers over everything, then a fade that lifts the blacks
+export type Texture = { layers: TextureLayer[]; fade: number }
 
 // The arrival, on a beat: pieces cut in, never fade. pop: cut in and stay. bump: cut in 5% big for a
 // frame, then sit. window: only the newest three show, then everything cuts in on the last beat.
@@ -55,7 +60,13 @@ export const defaultScene: Scene = {
   format: '4:5',
   bg: '#0e0e0e', // a very subtle off-black, just apart from the page
   pieces: [],
-  texture: { grain: 0.35, paper: 0.25, dots: 0, fade: 0.1 },
+  texture: {
+    layers: [
+      { source: 'grain', blend: 'overlay', amount: 0.3, scale: 1, colour: 'neutral' },
+      { source: 'paper', blend: 'multiply', amount: 0.2, scale: 1, colour: 'neutral' },
+    ],
+    fade: 0.1,
+  },
   outside: 'hide',
   tilt: false,
   anim: { style: 'pop', beat: 0.25, hold: 1.6, order: 'stack', seed: 1 },
@@ -79,7 +90,8 @@ export const newId = () => `p${Date.now().toString(36)}${(seq++).toString(36)}`
 
 const base = (p: Partial<Piece>): Piece => ({
   id: newId(), kind: 'block', x: 0.5, y: 0.5, w: 0.4, h: 0.4, rot: 0, color: '#2f6b35',
-  crop: 'none', mono: false, texture: 0, show: 0, blend: 'normal', edge: 'clean', cross: 'plus', ...p,
+  crop: 'none', mono: false, texture: 0, show: 0, blend: 'normal', edge: 'clean', cross: 'plus',
+  adjust: { sat: 1, con: 1, bri: 1 }, tex: null, ...p,
 })
 
 // Images arrive printed (a bit of texture, a little show-through) and fill most of the artboard:
@@ -128,3 +140,16 @@ export function randomise(scene: Scene, seed = Date.now()): Piece[] {
   const crosses = marks.map(p => ({ ...p, x: 0.08 + r() * 0.84, y: (0.06 + r() * 0.88) * H, rot: 0 }))
   return [...placed, ...crosses]
 }
+
+// Collages saved before texture layers: their grain and paper amounts become built-in layers
+export function migrateTexture(t: unknown): Texture {
+  const o = (t ?? {}) as Partial<Texture> & { grain?: number; paper?: number }
+  if (Array.isArray(o.layers)) return { layers: o.layers, fade: o.fade ?? 0.1 }
+  const layers: TextureLayer[] = []
+  if (o.grain) layers.push({ source: 'grain', blend: 'overlay', amount: o.grain * 0.85, scale: 1, colour: 'neutral' })
+  if (o.paper) layers.push({ source: 'paper', blend: 'multiply', amount: o.paper * 0.8, scale: 1, colour: 'neutral' })
+  return { layers, fade: o.fade ?? 0.1 }
+}
+
+// Pieces saved before adjustments and piece textures
+export const migratePiece = (p: Piece): Piece => ({ ...p, adjust: p.adjust ?? { sat: 1, con: 1, bri: 1 }, tex: p.tex ?? null })

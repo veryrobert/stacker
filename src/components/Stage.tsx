@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { arrivalLength, drawScene, hitPiece, type Img } from '@/render'
+import type { TextureSource } from '@/textures'
 import { height, type Piece, type Scene } from '@/scene'
 
 type Props = {
   scene: Scene
   images: Map<string, Img>
+  textures: Map<string, TextureSource>
   version: number // bumps when an image finishes loading
   selected: string | null
   onSelect: (id: string | null) => void
@@ -45,7 +47,7 @@ type Gesture =
   | { mode: 'rotate'; id: string; a0: number; r0: number }
   | { mode: 'pinch'; id: string; d0: number; a0: number; w0: number; h0: number; r0: number }
 
-export function Stage({ scene, images, version, selected, onSelect, onChange, onCommit, onDropFiles, inset, phone, play, onPlayEnd }: Props) {
+export function Stage({ scene, images, textures, version, selected, onSelect, onChange, onCommit, onDropFiles, inset, phone, play, onPlayEnd }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight })
   const [time, setTime] = useState<number | null>(null) // arrival preview clock
@@ -96,7 +98,7 @@ export function Stage({ scene, images, version, selected, onSelect, onChange, on
     g.save()
     g.translate(ab.x, ab.y)
     const showOutside = scene.outside === 'show'
-    drawScene(g, scene, images, unit, { clip: !showOutside, arrival: time === null ? undefined : { time } })
+    drawScene(g, scene, images, unit, { clip: !showOutside, arrival: time === null ? undefined : { time }, textures })
     g.restore()
     // Outside the artboard: hidden by default; when shown, dimmed so it reads as cropped
     g.save()
@@ -132,7 +134,7 @@ export function Stage({ scene, images, version, selected, onSelect, onChange, on
       }
       g.restore()
     }
-  }, [scene, images, version, selected, size, unit, ab.x, ab.y, ab.w, ab.h, time])
+  }, [scene, images, textures, version, selected, size, unit, ab.x, ab.y, ab.w, ab.h, time])
 
   // Screen point to artboard units
   const toArt = (sx: number, sy: number) => ({ x: (sx - ab.x) / unit, y: (sy - ab.y) / unit })

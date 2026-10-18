@@ -1,5 +1,6 @@
 import type { Piece, Scene } from './scene'
 import { height } from './scene'
+import { paintTexture, type TextureSource } from './textures'
 
 // One image, as loaded: the picture and a black-and-white copy, both kept to a sensible size
 export type Img = { colour: HTMLCanvasElement; mono: HTMLCanvasElement; aspect: number }
@@ -24,6 +25,31 @@ export function prepareImage(el: HTMLImageElement): Img {
   }
   mono.getContext('2d')!.putImageData(d, 0, 0)
   return { colour, mono, aspect: w / h }
+}
+
+// ---------- Image adjustments: saturation, contrast, brightness (cached per setting) ----------
+const adjusted = new Map<string, HTMLCanvasElement>()
+function adjustedSource(img: Img, p: Piece): HTMLCanvasElement {
+  const base = p.mono ? img.mono : img.colour, a = p.adjust
+  if (!a || (a.sat === 1 && a.con === 1 && a.bri === 1)) return base
+  const key = `${p.imageId}|${p.mono}|${a.sat.toFixed(2)}|${a.con.toFixed(2)}|${a.bri.toFixed(2)}`
+  const hit = adjusted.get(key)
+  if (hit) return hit
+  const c = document.createElement('canvas')
+  c.width = base.width; c.height = base.height
+  const g = c.getContext('2d')!
+  g.drawImage(base, 0, 0)
+  const d = g.getImageData(0, 0, c.width, c.height), px = d.data
+  for (let i = 0; i < px.length; i += 4) {
+    let r = px[i] * a.bri, gg = px[i + 1] * a.bri, b = px[i + 2] * a.bri
+    r = (r - 128) * a.con + 128; gg = (gg - 128) * a.con + 128; b = (b - 128) * a.con + 128
+    const l = 0.2126 * r + 0.7152 * gg + 0.0722 * b
+    px[i] = l + (r - l) * a.sat; px[i + 1] = l + (gg - l) * a.sat; px[i + 2] = l + (b - l) * a.sat
+  }
+  g.putImageData(d, 0, 0)
+  if (adjusted.size > 24) adjusted.delete(adjusted.keys().next().value!) // keep the cache small
+  adjusted.set(key, c)
+  return c
 }
 
 // ---------- Texture tiles, made once ----------
@@ -109,7 +135,7 @@ function drawContent(g: CanvasRenderingContext2D, p: Piece, w: number, h: number
   switch (p.kind) {
     case 'image': {
       if (!img) { g.fillStyle = '#ccc'; g.fillRect(-w / 2, -h / 2, w, h); return }
-      const src = p.mono ? img.mono : img.colour
+      const src = adjustedSource(img, p)
       // Circle crops fill a square with the picture's middle
       const bw = p.crop === 'circle' ? Math.min(w, h) : w, bh = p.crop === 'circle' ? Math.min(w, h) : h
       const s = Math.max(bw / src.width, bh / src.height)
@@ -210,7 +236,7 @@ function arrivalState(s: Scene, rank: number, t: number): { show: boolean; bump:
   return { show: true, bump: a.style === 'bump' && t - start < BUMP }
 }
 
-function drawPiece(g: CanvasRenderingContext2D, p: Piece, unit: number, img: Img | undefined, bump = false) {
+function drawPiece(g: CanvasRenderingContext2D, p: Piece, unit: number, img: Img | undefined, bump = false, textures?: Map<string, TextureSource>) {
   const w = p.w * unit, h = p.h * unit
   g.save()
   g.translate(p.x * unit, p.y * unit)
@@ -224,38 +250,31 @@ function drawPiece(g: CanvasRenderingContext2D, p: Piece, unit: number, img: Img
   } else drawContent(g, p, w, h, img, unit)
   g.globalAlpha = 1
   g.globalCompositeOperation = 'source-over'
+  // A texture printed onto the piece: it travels and turns with the piece, like the paper it's on
+  const tsrc = p.tex && textures?.get(p.tex.source)
+  if (p.tex && tsrc && (p.kind === 'image' || p.kind === 'block' || p.kind === 'circle')) {
+    g.save(); shapePath(g, p, w, h); g.clip()
+    paintTexture(g, p.tex, tsrc, unit, w, h, -w / 2, -h / 2)
+    g.restore()
+  }
   printPiece(g, p, w, h, unit)
   g.restore()
 }
 
-// ---------- The artboard's own textures ----------
-function textureArtboard(g: CanvasRenderingContext2D, s: Scene, unit: number) {
-  const T = getTiles(), W = unit, H = height(s) * unit, t = s.texture
-  g.save()
-  if (t.paper) {
-    g.globalCompositeOperation = 'multiply'
-    g.globalAlpha = t.paper * 0.35
-    g.fillStyle = '#efe4cc'; g.fillRect(0, 0, W, H)
-    g.globalCompositeOperation = 'soft-light'
-    g.globalAlpha = t.paper * 0.6
-    g.fillStyle = pattern(g, T.fibre, unit, 2); g.fillRect(0, 0, W, H)
-  }
-  if (t.dots) {
-    g.globalCompositeOperation = 'multiply'
-    g.globalAlpha = t.dots * 0.28
-    g.fillStyle = pattern(g, T.dots, unit, 1.6); g.fillRect(0, 0, W, H)
-  }
-  if (t.grain) {
-    g.globalCompositeOperation = 'overlay'
-    g.globalAlpha = t.grain * 0.4
-    g.fillStyle = pattern(g, T.grain, unit); g.fillRect(0, 0, W, H)
+// ---------- The artboard's finish: texture layers, then fade ----------
+function textureArtboard(g: CanvasRenderingContext2D, s: Scene, unit: number, textures?: Map<string, TextureSource>) {
+  const W = unit, H = height(s) * unit, t = s.texture
+  for (const layer of t.layers) {
+    const src = textures?.get(layer.source)
+    if (src) paintTexture(g, layer, src, unit, W, H)
   }
   if (t.fade) {
+    g.save()
     g.globalCompositeOperation = 'screen'
     g.globalAlpha = t.fade * 0.5
     g.fillStyle = '#3c3a36'; g.fillRect(0, 0, W, H)
+    g.restore()
   }
-  g.restore()
 }
 
 // Draw the scene with the artboard's top-left at the context origin, `unit` pixels per artboard width.
@@ -265,7 +284,7 @@ export function drawScene(
   s: Scene,
   images: Map<string, Img>,
   unit: number,
-  { clip = true, arrival }: { clip?: boolean; arrival?: Arrival } = {},
+  { clip = true, arrival, textures }: { clip?: boolean; arrival?: Arrival; textures?: Map<string, TextureSource> } = {},
 ) {
   const W = unit, H = height(s) * unit
   g.save()
@@ -275,12 +294,12 @@ export function drawScene(
   const rank = arrival ? ranks(s) : []
   s.pieces.forEach((p, i) => {
     const st = arrival ? arrivalState(s, rank[i], arrival.time) : { show: true, bump: false }
-    if (st.show) drawPiece(g, p, unit, p.imageId ? images.get(p.imageId) : undefined, st.bump)
+    if (st.show) drawPiece(g, p, unit, p.imageId ? images.get(p.imageId) : undefined, st.bump, textures)
   })
   g.restore()
   // Artboard textures sit on top of everything, inside the artboard only
   g.save(); g.beginPath(); g.rect(0, 0, W, H); g.clip()
-  textureArtboard(g, s, unit)
+  textureArtboard(g, s, unit, textures)
   g.restore()
 }
 

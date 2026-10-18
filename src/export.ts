@@ -1,5 +1,6 @@
 import { arrivalLength, drawScene, type Img } from './render'
 import { FORMATS, type Scene } from './scene'
+import type { TextureSource } from './textures'
 
 // Pixel size for an export, by its long side
 export function exportSize(s: Scene, long: number) {
@@ -8,11 +9,11 @@ export function exportSize(s: Scene, long: number) {
   return { w: w - (w % 2), h: h - (h % 2) } // even, for video encoders
 }
 
-export async function exportPng(s: Scene, images: Map<string, Img>, long: number): Promise<Blob | null> {
+export async function exportPng(s: Scene, images: Map<string, Img>, textures: Map<string, TextureSource>, long: number): Promise<Blob | null> {
   const { w, h } = exportSize(s, long)
   const c = document.createElement('canvas')
   c.width = w; c.height = h
-  drawScene(c.getContext('2d')!, s, images, w)
+  drawScene(c.getContext('2d')!, s, images, w, { textures })
   return new Promise(r => c.toBlob(r, 'image/png'))
 }
 
@@ -21,6 +22,7 @@ export async function exportPng(s: Scene, images: Map<string, Img>, long: number
 export async function exportVideo(
   s: Scene,
   images: Map<string, Img>,
+  textures: Map<string, TextureSource>,
   long: number,
   onProgress: (fraction: number) => void,
 ): Promise<{ blob: Blob; ext: 'mp4' | 'webm' } | null> {
@@ -32,7 +34,7 @@ export async function exportVideo(
   const types = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm']
   const type = types.find(t => MediaRecorder.isTypeSupported(t)) || ''
   const length = arrivalLength(s)
-  drawScene(g, s, images, w, { arrival: { time: 0 } })
+  drawScene(g, s, images, w, { arrival: { time: 0 }, textures })
   const stream = c.captureStream(30), chunks: Blob[] = []
   const rec = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 16e6 } : undefined)
   rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data) }
@@ -42,7 +44,7 @@ export async function exportVideo(
   await new Promise<void>(resolve => {
     const frame = () => {
       const t = (performance.now() - t0) / 1000
-      drawScene(g, s, images, w, { arrival: { time: t } })
+      drawScene(g, s, images, w, { arrival: { time: t }, textures })
       onProgress(Math.min(1, t / length))
       if (t >= length) resolve()
       else requestAnimationFrame(frame)

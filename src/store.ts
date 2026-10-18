@@ -29,3 +29,11 @@ export const loadScene = () => tx<Scene>('readonly', st => st.get('scene')).catc
 export const saveImage = (id: string, blob: Blob) => tx('readwrite', st => { st.put(blob, `img:${id}`) }).catch(() => {})
 export const loadImage = (id: string) => tx<Blob>('readonly', st => st.get(`img:${id}`)).catch(() => undefined)
 export const deleteImage = (id: string) => tx('readwrite', st => { st.delete(`img:${id}`) }).catch(() => {})
+
+// Textures you load: each file, plus a list of their names
+export type SavedTexture = { id: string; name: string }
+export const saveTextureList = (list: SavedTexture[]) => tx('readwrite', st => { st.put(list, 'textures') }).catch(() => {})
+export const loadTextureList = () => tx<SavedTexture[]>('readonly', st => st.get('textures')).catch(() => undefined)
+export const saveTextureFile = (id: string, blob: Blob) => tx('readwrite', st => { st.put(blob, `tex:${id}`) }).catch(() => {})
+export const loadTextureFile = (id: string) => tx<Blob>('readonly', st => st.get(`tex:${id}`)).catch(() => undefined)
+export const deleteTextureFile = (id: string) => tx('readwrite', st => { st.delete(`tex:${id}`) }).catch(() => {})

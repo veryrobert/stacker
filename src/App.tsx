@@ -19,10 +19,12 @@ import { PANEL_W, PHONE_SHEET, usePhone } from '@/components/shell/layout'
 import { Stage } from '@/components/Stage'
 import { prepareImage, type Img } from '@/render'
 import {
-  BG_SWATCHES, defaultScene, FORMATS, height, imagePiece, newId, randomise, shapePiece, SWATCHES,
+  BG_SWATCHES, defaultScene, FORMATS, height, imagePiece, migratePiece, migrateTexture, newId, randomise, shapePiece, SWATCHES,
   type AnimStyle, type CrossStyle, type Format, type Piece, type Scene,
 } from '@/scene'
-import { deleteImage, loadImage, loadScene, saveImage, saveScene } from '@/store'
+import { deleteImage, deleteTextureFile, loadImage, loadScene, loadTextureFile, loadTextureList, saveImage, saveScene, saveTextureFile, saveTextureList } from '@/store'
+import { BLENDS, builtinTextures, forgetTexture, userTexture, type Blend, type TextureLayer, type TextureSource } from '@/textures'
+import { TexturePicker } from '@/components/TexturePicker'
 import { download, exportPng, exportVideo } from '@/export'
 import { fetchSample, pickSamples } from '@/samples'
 
@@ -63,6 +65,48 @@ export default function App() {
   const [busy, setBusy] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const images = useRef(new Map<string, Img>())
+  // Texture sources: the built-ins, plus scans you load (kept in this browser, never published)
+  const [textures, setTextures] = useState<Map<string, TextureSource>>(() => new Map(builtinTextures().map(t => [t.id, t])))
+  const textureList = [...textures.values()]
+  useEffect(() => {
+    loadTextureList().then(async list => {
+      for (const t of list ?? []) {
+        const blob = await loadTextureFile(t.id)
+        if (!blob) continue
+        const src = userTexture(t.id, t.name, await decode(blob))
+        setTextures(m => new Map(m).set(src.id, src))
+      }
+    })
+  }, [])
+  const addTexture = async (file: File): Promise<string | null> => {
+    try {
+      const id = `t${newId()}`, src = userTexture(id, file.name.replace(/\.[^.]+$/, ''), await decode(file))
+      saveTextureFile(id, file)
+      setTextures(m => {
+        const next = new Map(m).set(id, src)
+        saveTextureList([...next.values()].filter(t => t.user).map(t => ({ id: t.id, name: t.name })))
+        return next
+      })
+      return id
+    } catch {
+      setNote('Couldn’t read that texture')
+      return null
+    }
+  }
+  const removeTexture = (id: string) => {
+    deleteTextureFile(id); forgetTexture(id)
+    setTextures(m => {
+      const next = new Map(m); next.delete(id)
+      saveTextureList([...next.values()].filter(t => t.user).map(t => ({ id: t.id, name: t.name })))
+      return next
+    })
+    // Anything using it goes back to no texture
+    setScene(sc => ({
+      ...sc,
+      texture: { ...sc.texture, layers: sc.texture.layers.filter(l => l.source !== id) },
+      pieces: sc.pieces.map(p => (p.tex?.source === id ? { ...p, tex: null } : p)),
+    }))
+  }
   const history = useRef<Scene[]>([])
   const fileInput = useRef<HTMLInputElement>(null)
   const phone = usePhone()
@@ -75,7 +119,7 @@ export default function App() {
   useEffect(() => {
     loadScene().then(async s => {
       if (s?.pieces) {
-        setScene({ ...defaultScene, ...s, texture: { ...defaultScene.texture, ...s.texture }, anim: { ...defaultScene.anim, ...s.anim } })
+        setScene({ ...defaultScene, ...s, pieces: s.pieces.map(migratePiece), texture: migrateTexture(s.texture), anim: { ...defaultScene.anim, ...s.anim } })
         for (const p of s.pieces) if (p.imageId && !images.current.has(p.imageId)) {
           const blob = await loadImage(p.imageId)
           if (blob) { images.current.set(p.imageId, prepareImage(await decode(blob))); setVersion(v => v + 1) }
@@ -116,6 +160,13 @@ export default function App() {
   }
   const updatePiece = (patch: Partial<Piece>) => piece && livePatch(piece.id, patch)
   const setAnim = (patch: Partial<Scene['anim']>) => setScene(s => ({ ...s, anim: { ...s.anim, ...patch } }))
+  const setLayer = (i: number, patch: Partial<TextureLayer>) => {
+    if (!gestureStart.current) gestureStart.current = latest.current
+    setScene(s => ({ ...s, texture: { ...s.texture, layers: s.texture.layers.map((l, j) => (j === i ? { ...l, ...patch } : l)) } }))
+  }
+  const addLayer = (source: string, blend: Blend = 'multiply') =>
+    commit(s => ({ ...s, texture: { ...s.texture, layers: [...s.texture.layers, { source, blend, amount: 0.4, scale: 1, colour: 'neutral' }] } }))
+  const removeLayer = (i: number) => commit(s => ({ ...s, texture: { ...s.texture, layers: s.texture.layers.filter((_, j) => j !== i) } }))
   const setTexture = (patch: Partial<Scene['texture']>) => {
     if (!gestureStart.current) gestureStart.current = scene
     setScene(s => ({ ...s, texture: { ...s.texture, ...patch } }))
@@ -229,13 +280,13 @@ export default function App() {
   const [videoSize, setVideoSize] = useState<'1080' | '1920'>('1080')
   const savePng = async () => {
     setBusy('Rendering')
-    const blob = await exportPng(scene, images.current, Number(pngSize))
+    const blob = await exportPng(scene, images.current, textures, Number(pngSize))
     setBusy(null)
     if (blob) download(blob, `stacker-${pngSize}.png`)
   }
   const saveVideo = async () => {
     setBusy('Recording 0%')
-    const out = await exportVideo(scene, images.current, Number(videoSize), f => setBusy(`Recording ${Math.round(f * 100)}%`))
+    const out = await exportVideo(scene, images.current, textures, Number(videoSize), f => setBusy(`Recording ${Math.round(f * 100)}%`))
     setBusy(null)
     if (!out) return setNote('Recording isn’t supported in this browser')
     download(out.blob, `stacker-${videoSize}.${out.ext}`)
@@ -256,6 +307,7 @@ export default function App() {
       <Stage
         scene={scene}
         images={images.current}
+        textures={textures}
         version={version}
         selected={selected}
         onSelect={setSelected}
@@ -341,12 +393,41 @@ export default function App() {
             <FieldGroup>
               <Range label="Show through" value={piece.show} onChange={v => updatePiece({ show: v })} onCommit={endGesture} />
               {(piece.kind === 'image' || piece.kind === 'block' || piece.kind === 'circle') && (
-                <Range label="Texture" value={piece.texture} onChange={v => updatePiece({ texture: v })} onCommit={endGesture} />
+                <Range label="Print feel" value={piece.texture} onChange={v => updatePiece({ texture: v })} onCommit={endGesture} />
               )}
               <Field label="Blend">
                 <Segmented label="Blend" value={piece.blend} onChange={v => { updatePiece({ blend: v }); endGesture() }} options={[{ value: 'normal', label: 'Normal' }, { value: 'multiply', label: 'Multiply' }]} />
               </Field>
             </FieldGroup>
+            {(piece.kind === 'image' || piece.kind === 'block' || piece.kind === 'circle') && (
+              <FieldGroup title="Texture">
+                <TexturePicker
+                  textures={textureList}
+                  value={piece.tex?.source ?? null}
+                  onChange={id => { updatePiece({ tex: id ? { blend: 'multiply', amount: 0.5, scale: 1, colour: 'neutral', ...piece.tex, source: id } : null }); endGesture() }}
+                  onLoad={async f => { const id = await addTexture(f); if (id) { updatePiece({ tex: { blend: 'multiply', amount: 0.5, scale: 1, colour: 'neutral', ...piece.tex, source: id } }); endGesture() } }}
+                  onRemove={removeTexture}
+                />
+                {piece.tex && (
+                  <>
+                    <Field label="Blend">
+                      <Segmented label="Texture blend" value={piece.tex.blend} onChange={(v: Blend) => { updatePiece({ tex: { ...piece.tex!, blend: v } }); endGesture() }} options={BLENDS} />
+                    </Field>
+                    <Range label="Amount" value={piece.tex.amount} onChange={v => updatePiece({ tex: { ...piece.tex!, amount: v } })} onCommit={endGesture} />
+                  </>
+                )}
+              </FieldGroup>
+            )}
+            {piece.kind === 'image' && (
+              <FieldGroup title="Adjust">
+                {([['sat', 'Saturation'], ['con', 'Contrast'], ['bri', 'Brightness']] as const).map(([k, label]) => (
+                  <Field key={k} label={label}>
+                    <Slider aria-label={label} min={k === 'sat' ? 0 : 0.5} max={k === 'sat' ? 2 : 1.5} step={0.01} value={[piece.adjust[k]]}
+                      onValueChange={([v]) => updatePiece({ adjust: { ...piece.adjust, [k]: v } })} onValueCommit={endGesture} />
+                  </Field>
+                ))}
+              </FieldGroup>
+            )}
             {piece.kind === 'image' && (
               <FieldGroup title="Image">
                 <Field label="Crop">
@@ -393,12 +474,42 @@ export default function App() {
         )}
 
         {panel === 'texture' && (
-          <FieldGroup>
-            <Range label="Grain" value={scene.texture.grain} onChange={v => setTexture({ grain: v })} onCommit={endGesture} />
-            <Range label="Paper" value={scene.texture.paper} onChange={v => setTexture({ paper: v })} onCommit={endGesture} />
-            <Range label="Print dots" value={scene.texture.dots} onChange={v => setTexture({ dots: v })} onCommit={endGesture} />
-            <Range label="Fade" value={scene.texture.fade} onChange={v => setTexture({ fade: v })} onCommit={endGesture} />
-          </FieldGroup>
+          <>
+            {scene.texture.layers.map((layer, i) => (
+              <FieldGroup key={i} title={`Layer ${i + 1}`}>
+                <TexturePicker
+                  textures={textureList}
+                  value={layer.source}
+                  allowNone={false}
+                  onChange={id => { if (id) { setLayer(i, { source: id }); endGesture() } }}
+                  onLoad={async f => { const id = await addTexture(f); if (id) { setLayer(i, { source: id }); endGesture() } }}
+                  onRemove={removeTexture}
+                />
+                <Field label="Blend">
+                  <Segmented label={`Layer ${i + 1} blend`} value={layer.blend} onChange={(v: Blend) => { setLayer(i, { blend: v }); endGesture() }} options={BLENDS} />
+                </Field>
+                <Range label="Amount" value={layer.amount} onChange={v => setLayer(i, { amount: v })} onCommit={endGesture} />
+                <Field label="Scale">
+                  <Slider aria-label="Scale" min={0.25} max={4} step={0.05} value={[layer.scale]} onValueChange={([v]) => setLayer(i, { scale: v })} onValueCommit={endGesture} />
+                </Field>
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0 flex-1">
+                    <Segmented label={`Layer ${i + 1} colour`} value={layer.colour} onChange={v => { setLayer(i, { colour: v }); endGesture() }} options={[{ value: 'neutral', label: 'Neutral' }, { value: 'original', label: 'Original colour' }]} />
+                  </div>
+                  <ToolButton icon={Trash2} label="Remove layer" side="top" className="size-8" onClick={() => removeLayer(i)} />
+                </div>
+              </FieldGroup>
+            ))}
+            {scene.texture.layers.length < 3 && (
+              <Button variant="secondary" onClick={() => addLayer('halftone')}>
+                <Plus strokeWidth={1.5} />
+                Add texture layer
+              </Button>
+            )}
+            <FieldGroup>
+              <Range label="Fade" value={scene.texture.fade} onChange={v => setTexture({ fade: v })} onCommit={endGesture} />
+            </FieldGroup>
+          </>
         )}
 
         {panel === 'motion' && (
