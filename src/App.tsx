@@ -1,12 +1,13 @@
-import { CutIcon, CutPicker } from '@/components/CutIcon'
+import { CutIcon } from '@/components/CutIcon'
+import { PieceBar, type PieceTool } from '@/components/PieceBar'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { BringToFront, Circle, Clapperboard, CopyPlus, Download, Frame, Grid3x3, ImagePlus, Images, Layers2, Play, Plus, SendToBack, Shuffle, Square, SquareMousePointer, Trash2, Undo2, Waves, X } from 'lucide-react'
+import { Circle, Clapperboard, Download, Frame, Grid3x3, ImagePlus, Images, Layers2, Play, Plus, Shuffle, Square, Trash2, Undo2, Waves, X } from 'lucide-react'
 import { Slider } from '@/components/ui/slider'
 import { Button } from '@/components/ui/button'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ToolButton } from '@/components/shell/ToolButton'
 import { Toolbar, ToolbarSeparator } from '@/components/shell/Toolbar'
-import { OnOff, Segmented } from '@/components/shell/Segmented'
+import { Segmented } from '@/components/shell/Segmented'
 import { Field, FieldGroup } from '@/components/shell/Field'
 import { Swatches } from '@/components/shell/Swatches'
 import { Splash } from '@/components/shell/Splash'
@@ -17,7 +18,7 @@ import { PANEL_W, PHONE_SHEET, usePhone } from '@/components/shell/layout'
 import { Stage } from '@/components/Stage'
 import { prepareImage, type Img } from '@/render'
 import {
-  BG_SWATCHES, CUTS, type Cut, cutPiece, defaultScene, FORMATS, height, imagePiece, migratePiece, migrateTexture, newId, randomise, shapePiece, SWATCHES,
+  BG_SWATCHES, CUTS, type Cut, cutPiece, defaultScene, FORMATS, height, imagePiece, migratePiece, migrateTexture, newId, randomise, shapePiece,
   type AnimStyle, type CrossStyle, type Format, type Piece, type Scene,
 } from '@/scene'
 import { deleteImage, deleteTextureFile, loadImage, loadScene, loadTextureFile, loadTextureList, saveImage, saveScene, saveTextureFile, saveTextureList } from '@/store'
@@ -28,7 +29,6 @@ import { fetchSample, pickSamples } from '@/samples'
 
 const panels = [
   { id: 'add', label: 'Add', icon: Plus },
-  { id: 'piece', label: 'Piece', icon: SquareMousePointer },
   { id: 'canvas', label: 'Canvas', icon: Frame },
   { id: 'texture', label: 'Texture', icon: Waves },
   { id: 'motion', label: 'Motion', icon: Clapperboard },
@@ -56,6 +56,9 @@ function decode(blob: Blob): Promise<HTMLImageElement> {
 export default function App() {
   const [scene, setScene] = useState<Scene>(defaultScene)
   const [selected, setSelected] = useState<string | null>(null)
+  // Editing one piece happens in the bottom bar (PieceBar): which of its tools is open
+  const [pieceTool, setPieceTool] = useState<PieceTool | null>(null)
+  useEffect(() => { setPieceTool(null); if (selected) setPanel(null) }, [selected])
   const [panel, setPanel] = useState<PanelId | null>(null)
   const [version, setVersion] = useState(0)
   const [note, setNote] = useState('')
@@ -301,7 +304,7 @@ export default function App() {
     download(out.blob, `stacker-${videoSize}.${out.ext}`)
   }
 
-  const inset = !panel ? { right: 0, bottom: 0 } : phone ? { right: 0, bottom: window.innerHeight * PHONE_SHEET } : { right: PANEL_W, bottom: 0 }
+  const inset = !panel ? { right: 0, bottom: phone && pieceTool ? 200 : 0 } : phone ? { right: 0, bottom: window.innerHeight * PHONE_SHEET } : { right: PANEL_W, bottom: 0 }
   const current = panels.find(p => p.id === panel)
   const empty = loaded && scene.pieces.length === 0
 
@@ -354,7 +357,15 @@ export default function App() {
         </div>
       )}
 
-      <PanelRail panels={panels} open={panel} onToggle={id => setPanel(panel === id ? null : id)} phone={phone} />
+      {!piece && <PanelRail panels={panels} open={panel} onToggle={id => setPanel(panel === id ? null : id)} phone={phone} />}
+      {/* While a piece is selected, Done takes the panel buttons' place, top right, as in Instagram */}
+      {piece && (
+        <button type="button" onClick={() => setSelected(null)}
+          className="panel fixed right-3 z-60 h-10 rounded-full px-5 text-sm font-medium max-sm:border-transparent max-sm:bg-transparent max-sm:backdrop-filter-none"
+          style={{ top: phone ? 'calc(env(safe-area-inset-top, 0px) + 12px)' : 12 }}>
+          Done
+        </button>
+      )}
 
       <PanelSheet open={panel !== null} title={current?.label} onClose={() => setPanel(null)} phone={phone}>
         {panel === 'add' && (
@@ -400,81 +411,6 @@ export default function App() {
             </FieldGroup>
           </>
         )}
-
-        {panel === 'piece' && (!piece ? (
-          <p className="text-xs text-muted-foreground">Select a piece on the canvas.</p>
-        ) : (
-          <>
-            <FieldGroup>
-              <Range label="Show through" value={piece.show} onChange={v => updatePiece({ show: v })} onCommit={endGesture} />
-              {(piece.kind === 'image' || piece.kind === 'block' || piece.kind === 'circle') && (
-                <Range label="Print feel" value={piece.texture} onChange={v => updatePiece({ texture: v })} onCommit={endGesture} />
-              )}
-              <Field label="Blend">
-                <Segmented label="Blend" value={piece.blend} onChange={v => { updatePiece({ blend: v }); endGesture() }} options={[{ value: 'normal', label: 'Normal' }, { value: 'multiply', label: 'Multiply' }]} />
-              </Field>
-            </FieldGroup>
-            {(piece.kind === 'image' || piece.kind === 'block' || piece.kind === 'circle') && (
-              <FieldGroup title="Texture">
-                <TexturePicker
-                  textures={textureList}
-                  value={piece.tex?.source ?? null}
-                  onChange={id => { updatePiece({ tex: id ? { blend: 'multiply', amount: 0.5, scale: 1, colour: 'neutral', ...piece.tex, source: id } : null }); endGesture() }}
-                  onLoad={async f => { const id = await addTexture(f); if (id) { updatePiece({ tex: { blend: 'multiply', amount: 0.5, scale: 1, colour: 'neutral', ...piece.tex, source: id } }); endGesture() } }}
-                  onRemove={removeTexture}
-                />
-                {piece.tex && (
-                  <>
-                    <Field label="Blend">
-                      <Segmented label="Texture blend" value={piece.tex.blend} onChange={(v: Blend) => { updatePiece({ tex: { ...piece.tex!, blend: v } }); endGesture() }} options={BLENDS} />
-                    </Field>
-                    <Range label="Amount" value={piece.tex.amount} onChange={v => updatePiece({ tex: { ...piece.tex!, amount: v } })} onCommit={endGesture} />
-                  </>
-                )}
-              </FieldGroup>
-            )}
-            {piece.kind === 'image' && (
-              <FieldGroup title="Adjust">
-                {([['sat', 'Saturation'], ['con', 'Contrast'], ['bri', 'Brightness']] as const).map(([k, label]) => (
-                  <Field key={k} label={label}>
-                    <Slider aria-label={label} min={k === 'sat' ? 0 : 0.5} max={k === 'sat' ? 2 : 1.5} step={0.01} value={[piece.adjust[k]]}
-                      onValueChange={([v]) => updatePiece({ adjust: { ...piece.adjust, [k]: v } })} onValueCommit={endGesture} />
-                  </Field>
-                ))}
-              </FieldGroup>
-            )}
-            {piece.kind === 'block' && (
-              <FieldGroup title="Shape">
-                <CutPicker value={piece.crop} onChange={v => { updatePiece({ crop: v }); endGesture() }} options={CUTS} />
-              </FieldGroup>
-            )}
-            {piece.kind === 'image' && (
-              <FieldGroup title="Image">
-                <Field label="Shape">
-                  <CutPicker value={piece.crop} onChange={v => { updatePiece({ crop: v }); endGesture() }} options={CUTS} />
-                </Field>
-                <Field label="Black and white">
-                  <OnOff label="Black and white" value={piece.mono} onChange={v => { updatePiece({ mono: v }); endGesture() }} />
-                </Field>
-              </FieldGroup>
-            )}
-            {(piece.kind === 'image' || piece.kind === 'block') && (
-              <Field label="Edge">
-                <Segmented label="Edge" value={piece.edge} onChange={v => { updatePiece({ edge: v }); endGesture() }} options={[{ value: 'clean', label: 'Clean' }, { value: 'torn', label: 'Torn' }]} />
-              </Field>
-            )}
-            {piece.kind !== 'image' && (
-              <Field label="Colour">
-                <Swatches label="Colour" value={piece.color} onChange={v => { updatePiece({ color: v }); endGesture() }} colours={SWATCHES} />
-              </Field>
-            )}
-            {piece.kind === 'cross' && (
-              <Field label="Mark">
-                <Segmented label="Mark" value={piece.cross} onChange={v => { updatePiece({ cross: v }); endGesture() }} options={[{ value: 'plus', label: 'Plus' }, { value: 'x', label: 'Cross' }, { value: 'reg', label: 'Register' }]} />
-              </Field>
-            )}
-          </>
-        ))}
 
         {panel === 'canvas' && (
           <FieldGroup>
@@ -600,25 +536,30 @@ export default function App() {
 
       <ActionDock phone={phone} panelOpen={panel !== null}>
         {note && <p role="status" className="panel rounded-full px-3 py-1 text-xs text-muted-foreground">{note}</p>}
-        <Toolbar aria-label="Collage">
-          <ToolButton icon={Shuffle} label="Randomise layout" side="top" disabled={!scene.pieces.length} onClick={shuffle} />
-          <ToolButton icon={Play} label="Play the arrival" side="top" disabled={!scene.pieces.length} onClick={() => { setSelected(null); setPlay(n => n + 1) }} />
-          <ToolButton icon={Undo2} label="Undo" side="top" disabled={!history.current.length} onClick={undo} />
-          <ToolbarSeparator />
-          {piece ? (
-            <>
-              <ToolButton icon={BringToFront} label="Bring to front" side="top" onClick={() => reorder('front')} />
-              <ToolButton icon={SendToBack} label="Send to back" side="top" onClick={() => reorder('back')} />
-              <ToolButton icon={CopyPlus} label="Duplicate" side="top" onClick={duplicate} />
-              <ToolButton icon={Trash2} label="Delete" side="top" onClick={remove} />
-            </>
-          ) : (
-            <>
-              <ToolButton icon={ImagePlus} label="Add images" side="top" onClick={() => fileInput.current?.click()} />
-              <ToolButton icon={Layers2} label="Add a shape" side="top" onClick={() => setPanel('add')} />
-            </>
-          )}
-        </Toolbar>
+        {piece ? (
+          <PieceBar
+            piece={piece}
+            tool={pieceTool}
+            onTool={setPieceTool}
+            update={updatePiece}
+            commit={endGesture}
+            textures={textureList}
+            onLoadTexture={addTexture}
+            onRemoveTexture={removeTexture}
+            onReorder={reorder}
+            onDuplicate={duplicate}
+            onDelete={remove}
+          />
+        ) : (
+          <Toolbar aria-label="Collage">
+            <ToolButton icon={Shuffle} label="Randomise layout" side="top" disabled={!scene.pieces.length} onClick={shuffle} />
+            <ToolButton icon={Play} label="Play the arrival" side="top" disabled={!scene.pieces.length} onClick={() => { setSelected(null); setPlay(n => n + 1) }} />
+            <ToolButton icon={Undo2} label="Undo" side="top" disabled={!history.current.length} onClick={undo} />
+            <ToolbarSeparator />
+            <ToolButton icon={ImagePlus} label="Add images" side="top" onClick={() => fileInput.current?.click()} />
+            <ToolButton icon={Layers2} label="Add a shape" side="top" onClick={() => setPanel('add')} />
+          </Toolbar>
+        )}
       </ActionDock>
     </TooltipProvider>
   )

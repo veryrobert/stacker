@@ -11,6 +11,7 @@ export function TexturePicker({
   onLoad,
   onRemove,
   allowNone = true,
+  row = false,
 }: {
   textures: TextureSource[]
   value: string | null
@@ -18,11 +19,12 @@ export function TexturePicker({
   onLoad: (file: File) => void
   onRemove?: (id: string) => void
   allowNone?: boolean
+  row?: boolean // one scrolling row, for the piece bar
 }) {
   const input = useRef<HTMLInputElement>(null)
   const tile = 'relative aspect-square overflow-hidden rounded-md ring-1 ring-border outline-none focus-visible:ring-2 focus-visible:ring-ring'
   return (
-    <div role="group" aria-label="Texture" className="grid grid-cols-5 gap-1.5">
+    <div role="group" aria-label="Texture" className={row ? 'flex gap-1.5 overflow-x-auto p-1 [&>*]:size-11 [&>*]:shrink-0' : 'grid grid-cols-5 gap-1.5'}>
       {allowNone && (
         <button type="button" aria-label="No texture" aria-pressed={value === null} onClick={() => onChange(null)}
           className={cn(tile, 'grid place-items-center bg-muted text-muted-foreground', value === null && 'ring-2 ring-foreground')}>
