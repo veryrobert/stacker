@@ -72,16 +72,15 @@ export function Stage({ scene, images, textures, version, selected, onSelect, on
   }, [])
 
   // The artboard fitted into the space left by the bars and any open panel
-  // On phones it lines up with the panel rail: the same 12px edge, a 12px gap before the rail
-  // (48px wide), and its top level with the rail's, below the notch
+  // On phones it sits under the panel rail (a 48px row top right, below the notch) with 12px edges
   const safeTop = useMemo(() => (phone ? safeAreaTop() : 0), [phone, size.w, size.h])
-  const margin = phone ? { l: 12, r: 12 + 48 + 12, t: 12 + safeTop, b: 72 } : { l: 72, r: 72, t: 36, b: 104 }
+  const margin = phone ? { l: 12, r: 12, t: safeTop + 12 + 48 + 12, b: 72 } : { l: 72, r: 72, t: 36, b: 104 }
   const availW = Math.max(80, size.w - margin.l - margin.r - inset.right)
   const availH = Math.max(80, size.h - margin.t - margin.b - (inset.bottom ? inset.bottom - margin.b + 24 : 0))
   const H = height(scene)
   const unit = Math.min(availW, availH / H)
   const ab = phone
-    ? { x: margin.l, y: margin.t, w: unit, h: unit * H }
+    ? { x: margin.l + (availW - unit) / 2, y: margin.t, w: unit, h: unit * H }
     : { x: margin.l + (availW - unit) / 2, y: margin.t + (availH - unit * H) / 2, w: unit, h: unit * H }
 
   // Arrival preview
