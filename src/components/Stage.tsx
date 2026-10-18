@@ -62,7 +62,7 @@ export function Stage({ scene, images, textures, version, selected, onSelect, on
   }, [])
 
   // The artboard fitted into the space left by the bars and any open panel
-  const margin = phone ? { l: 16, r: 16, t: 20, b: 132 } : { l: 72, r: 72, t: 36, b: 104 }
+  const margin = phone ? { l: 16, r: 64, t: 20, b: 72 } : { l: 72, r: 72, t: 36, b: 104 }
   const availW = Math.max(80, size.w - margin.l - margin.r - inset.right)
   const availH = Math.max(80, size.h - margin.t - margin.b - (inset.bottom ? inset.bottom - margin.b + 24 : 0))
   const H = height(scene)
