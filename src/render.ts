@@ -172,26 +172,50 @@ function printPiece(g: CanvasRenderingContext2D, p: Piece, w: number, h: number,
 }
 
 export type Arrival = { time: number } // seconds into the arrival animation
-// Arrival is stuck down, not slid in: each piece lands whole in one frame, a touch big and askew,
-// and snaps flat in a few stepped frames, like stop-motion cut paper
-export const STAGGER = 0.24, ARRIVE = 0.2, LEAD = 0.3, HOLD = 1.6
-const SNAP_STEPS = 3
-export const arrivalLength = (n: number) => LEAD + Math.max(0, n - 1) * STAGGER + ARRIVE + HOLD
 
-function drawPiece(g: CanvasRenderingContext2D, p: Piece, unit: number, img: Img | undefined, enter = 1, index = 0) {
-  if (enter <= 0) return
+// ---------- Arrival, on a beat ----------
+// Pieces cut in on the beat, with no fades or slides (see Anim in scene.ts). One piece per beat;
+// the drawing order stays the stacking order even when pieces arrive in a random order.
+const LEAD = 0.2 // empty board before the first beat
+const WINDOW = 3 // the window style shows this many of the newest pieces
+const BUMP = 1 / 15 // a bump lasts two frames at 30fps
+
+export function arrivalLength(s: Scene) {
+  const a = s.anim, n = s.pieces.length
+  // the last piece lands on beat n-1; one more beat (window: everything cuts in), then the hold
+  return LEAD + n * a.beat + a.hold + (a.style === 'build' ? a.beat : 0) // build: a beat of empty board to loop on
+}
+
+// Each piece's place in the arrival order
+function ranks(s: Scene): number[] {
+  const n = s.pieces.length, order = Array.from({ length: n }, (_, i) => i)
+  if (s.anim.order === 'random') {
+    let q = (s.anim.seed % 2147483646) + 1
+    const r = () => (q = (q * 16807) % 2147483647) / 2147483647
+    for (let i = n - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [order[i], order[j]] = [order[j], order[i]] }
+  }
+  const rank = new Array<number>(n)
+  order.forEach((piece, r) => { rank[piece] = r })
+  return rank
+}
+
+function arrivalState(s: Scene, rank: number, t: number): { show: boolean; bump: boolean } {
+  const a = s.anim, n = s.pieces.length, start = LEAD + rank * a.beat, allIn = LEAD + n * a.beat
+  if (t < start) return { show: false, bump: false }
+  if (a.style === 'window' && t < allIn) {
+    const beat = Math.floor((t - LEAD) / a.beat)
+    return { show: rank > beat - WINDOW, bump: false }
+  }
+  if (a.style === 'build' && t >= allIn + a.hold) return { show: false, bump: false }
+  return { show: true, bump: a.style === 'bump' && t - start < BUMP }
+}
+
+function drawPiece(g: CanvasRenderingContext2D, p: Piece, unit: number, img: Img | undefined, bump = false) {
   const w = p.w * unit, h = p.h * unit
   g.save()
-  // Arrival: lands slightly big and askew, then snaps flat in stepped frames
-  let sc = 1, twist = 0
-  if (enter < 1) {
-    const left = 1 - Math.floor(enter * SNAP_STEPS) / SNAP_STEPS
-    sc = 1 + 0.05 * left
-    twist = (hash(p.id) % 2 ? 1.6 : -1.6) * left
-  }
   g.translate(p.x * unit, p.y * unit)
-  g.rotate(((p.rot + twist) * Math.PI) / 180)
-  g.scale(sc, sc)
+  g.rotate((p.rot * Math.PI) / 180)
+  if (bump) g.scale(1.05, 1.05) // one frame big, then full size: a hard cut, not an ease
   g.globalAlpha = 1 - p.show
   g.globalCompositeOperation = p.blend === 'multiply' ? 'multiply' : 'source-over'
   if (p.kind === 'image' || p.kind === 'block' || p.kind === 'circle') {
@@ -202,7 +226,6 @@ function drawPiece(g: CanvasRenderingContext2D, p: Piece, unit: number, img: Img
   g.globalCompositeOperation = 'source-over'
   printPiece(g, p, w, h, unit)
   g.restore()
-  void index
 }
 
 // ---------- The artboard's own textures ----------
@@ -249,11 +272,10 @@ export function drawScene(
   g.fillStyle = s.bg
   g.fillRect(0, 0, W, H)
   if (clip) { g.beginPath(); g.rect(0, 0, W, H); g.clip() }
+  const rank = arrival ? ranks(s) : []
   s.pieces.forEach((p, i) => {
-    // Not yet arrived: not drawn at all (0); arrived: snapping (0..1); settled: 1
-    const t = arrival ? (arrival.time - LEAD - i * STAGGER) / ARRIVE : 1
-    const enter = t < 0 ? 0 : Math.min(1, Math.max(0.0001, t))
-    drawPiece(g, p, unit, p.imageId ? images.get(p.imageId) : undefined, enter, i)
+    const st = arrival ? arrivalState(s, rank[i], arrival.time) : { show: true, bump: false }
+    if (st.show) drawPiece(g, p, unit, p.imageId ? images.get(p.imageId) : undefined, st.bump)
   })
   g.restore()
   // Artboard textures sit on top of everything, inside the artboard only

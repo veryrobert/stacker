@@ -35,12 +35,20 @@ export type Format = keyof typeof FORMATS
 
 export type Texture = { grain: number; paper: number; dots: number; fade: number }
 
+// The arrival, on a beat: pieces cut in, never fade. pop: cut in and stay. bump: cut in 5% big for a
+// frame, then sit. window: only the newest three show, then everything cuts in on the last beat.
+// build: cut in, hold, then all cut away (a seamless loop).
+export type AnimStyle = 'pop' | 'bump' | 'window' | 'build'
+export type Anim = { style: AnimStyle; beat: number; hold: number; order: 'stack' | 'random'; seed: number }
+
 export type Scene = {
   format: Format
   bg: string
   pieces: Piece[]
   texture: Texture // over the whole artboard
   outside: 'hide' | 'show' // the editor: show pieces past the artboard edge (exports always crop)
+  tilt: boolean // randomise with slight tilts; off keeps everything upright
+  anim: Anim
 }
 
 export const defaultScene: Scene = {
@@ -49,6 +57,8 @@ export const defaultScene: Scene = {
   pieces: [],
   texture: { grain: 0.35, paper: 0.25, dots: 0, fade: 0.1 },
   outside: 'hide',
+  tilt: false,
+  anim: { style: 'pop', beat: 0.25, hold: 1.6, order: 'stack', seed: 1 },
 }
 
 // Colours that suit the references: printed greens, yellows, blues, warm paper, ink
@@ -110,7 +120,7 @@ export function randomise(scene: Scene, seed = Date.now()): Piece[] {
     const cx = (c + 0.5) / cols + (r() - 0.5) * (1.1 / cols), cy = ((row + 0.5) / rows + (r() - 0.5) * (1.1 / rows)) * H
     const aspect = p.w / p.h
     const w = p.kind === 'grid' ? 0.5 + r() * 0.45 : (1.25 / cols) * (0.8 + r() * 0.8) // generous: pieces overlap and fill the board
-    const tilt = r() < 0.6 ? 0 : (r() - 0.5) * 7
+    const tilt = scene.tilt && r() >= 0.6 ? (r() - 0.5) * 7 : 0 // upright unless Tilted is on
     return { ...p, w, h: p.kind === 'circle' ? w : w / aspect, x: cx, y: cy, rot: tilt }
   })
   // Shuffle the stacking order, but keep crosses on top so they stay visible

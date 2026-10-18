@@ -70,7 +70,7 @@ export function Stage({ scene, images, version, selected, onSelect, onChange, on
   // Arrival preview
   useEffect(() => {
     if (!play) return
-    const length = arrivalLength(scene.pieces.length), t0 = performance.now()
+    const length = arrivalLength(scene), t0 = performance.now()
     let raf = 0
     const tick = () => {
       const t = (performance.now() - t0) / 1000

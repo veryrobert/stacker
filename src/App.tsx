@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  BringToFront, Circle, Copy, Images, Download, Frame, Grid3x3, ImagePlus, Layers2, Play, Plus, SendToBack, Shuffle, SlidersHorizontal,
+  BringToFront, Circle, Clapperboard, Copy, Dices, Images, Download, Frame, Grid3x3, ImagePlus, Layers2, Play, Plus, SendToBack, Shuffle, SlidersHorizontal,
   Square, Trash2, Undo2, Waves, X,
 } from 'lucide-react'
 import { Slider } from '@/components/ui/slider'
@@ -20,7 +20,7 @@ import { Stage } from '@/components/Stage'
 import { prepareImage, type Img } from '@/render'
 import {
   BG_SWATCHES, defaultScene, FORMATS, height, imagePiece, newId, randomise, shapePiece, SWATCHES,
-  type CrossStyle, type Format, type Piece, type Scene,
+  type AnimStyle, type CrossStyle, type Format, type Piece, type Scene,
 } from '@/scene'
 import { deleteImage, loadImage, loadScene, saveImage, saveScene } from '@/store'
 import { download, exportPng, exportVideo } from '@/export'
@@ -31,6 +31,7 @@ const panels = [
   { id: 'piece', label: 'Piece', icon: SlidersHorizontal },
   { id: 'canvas', label: 'Canvas', icon: Frame },
   { id: 'texture', label: 'Texture', icon: Waves },
+  { id: 'motion', label: 'Motion', icon: Clapperboard },
   { id: 'export', label: 'Export', icon: Download },
 ] as const
 type PanelId = (typeof panels)[number]['id']
@@ -74,7 +75,7 @@ export default function App() {
   useEffect(() => {
     loadScene().then(async s => {
       if (s?.pieces) {
-        setScene({ ...defaultScene, ...s, texture: { ...defaultScene.texture, ...s.texture } })
+        setScene({ ...defaultScene, ...s, texture: { ...defaultScene.texture, ...s.texture }, anim: { ...defaultScene.anim, ...s.anim } })
         for (const p of s.pieces) if (p.imageId && !images.current.has(p.imageId)) {
           const blob = await loadImage(p.imageId)
           if (blob) { images.current.set(p.imageId, prepareImage(await decode(blob))); setVersion(v => v + 1) }
@@ -114,6 +115,7 @@ export default function App() {
     gestureStart.current = null
   }
   const updatePiece = (patch: Partial<Piece>) => piece && livePatch(piece.id, patch)
+  const setAnim = (patch: Partial<Scene['anim']>) => setScene(s => ({ ...s, anim: { ...s.anim, ...patch } }))
   const setTexture = (patch: Partial<Scene['texture']>) => {
     if (!gestureStart.current) gestureStart.current = scene
     setScene(s => ({ ...s, texture: { ...s.texture, ...patch } }))
@@ -381,6 +383,9 @@ export default function App() {
             <Field label="Background">
               <Swatches label="Background" value={scene.bg} onChange={v => commit(s => ({ ...s, bg: v }))} colours={BG_SWATCHES} />
             </Field>
+            <Field label="Randomise">
+              <Segmented label="Randomise" value={scene.tilt ? 'tilted' : 'straight'} onChange={v => setScene(sc => ({ ...sc, tilt: v === 'tilted' }))} options={[{ value: 'straight', label: 'Straight' }, { value: 'tilted', label: 'Tilted' }]} />
+            </Field>
             <Field label="Outside the canvas">
               <Segmented label="Outside the canvas" value={scene.outside} onChange={v => setScene(sc => ({ ...sc, outside: v }))} options={[{ value: 'hide', label: 'Hide' }, { value: 'show', label: 'Show' }]} />
             </Field>
@@ -396,6 +401,52 @@ export default function App() {
           </FieldGroup>
         )}
 
+        {panel === 'motion' && (
+          <>
+            <FieldGroup>
+              <Field label="Style">
+                <Segmented
+                  label="Style"
+                  value={scene.anim.style}
+                  onChange={(v: AnimStyle) => setAnim({ style: v })}
+                  options={[{ value: 'pop', label: 'Pop' }, { value: 'bump', label: 'Bump' }, { value: 'window', label: 'Window' }, { value: 'build', label: 'Build' }]}
+                />
+              </Field>
+              <p className="text-xs text-muted-foreground">
+                {{ pop: 'Each piece cuts in on its beat and stays.', bump: 'Cuts in a touch big for a frame, then sits.', window: 'Only the newest three show; everything cuts in on the last beat.', build: 'Builds up, holds, then cuts away: a seamless loop.' }[scene.anim.style]}
+              </p>
+            </FieldGroup>
+            <FieldGroup title="Timing">
+              <Field label="Beat">
+                <div className="flex items-center gap-3">
+                  <Slider aria-label="Beat" className="w-auto min-w-0 flex-1" min={0.06} max={1} step={0.01} value={[scene.anim.beat]} onValueChange={([v]) => setAnim({ beat: v })} />
+                  <span className="shrink-0 whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums">{scene.anim.beat.toFixed(2)}s · {Math.round(60 / scene.anim.beat)} bpm</span>
+                </div>
+              </Field>
+              <Field label="Hold">
+                <div className="flex items-center gap-3">
+                  <Slider aria-label="Hold" className="w-auto min-w-0 flex-1" min={0.4} max={4} step={0.1} value={[scene.anim.hold]} onValueChange={([v]) => setAnim({ hold: v })} />
+                  <span className="shrink-0 whitespace-nowrap text-right text-xs text-muted-foreground tabular-nums">{scene.anim.hold.toFixed(1)}s</span>
+                </div>
+              </Field>
+              <Field label="Order">
+                <div className="flex gap-1">
+                  <div className="min-w-0 flex-1">
+                    <Segmented label="Order" value={scene.anim.order} onChange={v => setAnim({ order: v })} options={[{ value: 'stack', label: 'Stacking' }, { value: 'random', label: 'Random' }]} />
+                  </div>
+                  {scene.anim.order === 'random' && (
+                    <ToolButton icon={Dices} label="New random order" side="top" className="size-8" onClick={() => setAnim({ seed: Math.floor(Math.random() * 1e9) })} />
+                  )}
+                </div>
+              </Field>
+            </FieldGroup>
+            <Button variant="secondary" disabled={!scene.pieces.length} onClick={() => { setSelected(null); setPlay(n => n + 1) }}>
+              <Play strokeWidth={1.5} />
+              Play
+            </Button>
+          </>
+        )}
+
         {panel === 'export' && (
           <>
             <FieldGroup title="Image">
@@ -409,7 +460,7 @@ export default function App() {
                 <Segmented label="Video size" value={videoSize} onChange={setVideoSize} options={[{ value: '1080', label: '1080' }, { value: '1920', label: '1920' }]} />
               </Field>
               <Button variant="secondary" disabled={!!busy || !scene.pieces.length} onClick={saveVideo}>Record video</Button>
-              <p className="text-xs text-muted-foreground">The pieces arrive one by one in stacking order, then the collage holds. MP4 where your browser can record it, otherwise WebM.</p>
+              <p className="text-xs text-muted-foreground">Uses the Motion settings. MP4 where your browser can record it, otherwise WebM.</p>
             </FieldGroup>
             {busy && <p role="status" className="text-xs text-muted-foreground">{busy}</p>}
           </>

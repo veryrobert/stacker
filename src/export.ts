@@ -31,7 +31,7 @@ export async function exportVideo(
   const g = c.getContext('2d')!
   const types = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm']
   const type = types.find(t => MediaRecorder.isTypeSupported(t)) || ''
-  const length = arrivalLength(s.pieces.length)
+  const length = arrivalLength(s)
   drawScene(g, s, images, w, { arrival: { time: 0 } })
   const stream = c.captureStream(30), chunks: Blob[] = []
   const rec = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 16e6 } : undefined)
