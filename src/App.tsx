@@ -1,7 +1,7 @@
 import { CutIcon } from '@/components/CutIcon'
 import { PieceBar, type PieceTool } from '@/components/PieceBar'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Circle, Clapperboard, Download, Frame, Grid3x3, ImagePlus, Images, Layers2, Play, Plus, Shuffle, Square, Trash2, Undo2, Waves, X } from 'lucide-react'
+import { Circle, Clapperboard, Download, Frame, Grid3x3, ImagePlus, Images, Layers2, Play, Plus, Shuffle, Square, Trash2, Undo2, Waves, X, Check } from 'lucide-react'
 import { Slider } from '@/components/ui/slider'
 import { Button } from '@/components/ui/button'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -304,7 +304,7 @@ export default function App() {
     download(out.blob, `stacker-${videoSize}.${out.ext}`)
   }
 
-  const inset = !panel ? { right: 0, bottom: phone && pieceTool ? 200 : 0 } : phone ? { right: 0, bottom: window.innerHeight * PHONE_SHEET } : { right: PANEL_W, bottom: 0 }
+  const inset = !panel ? { right: 0, bottom: pieceTool ? (phone ? 200 : 160) : 0 } : phone ? { right: 0, bottom: window.innerHeight * PHONE_SHEET } : { right: PANEL_W, bottom: 0 }
   const current = panels.find(p => p.id === panel)
   const empty = loaded && scene.pieces.length === 0
 
@@ -360,11 +360,11 @@ export default function App() {
       {!piece && <PanelRail panels={panels} open={panel} onToggle={id => setPanel(panel === id ? null : id)} phone={phone} />}
       {/* While a piece is selected, Done takes the panel buttons' place, top right, as in Instagram */}
       {piece && (
-        <button type="button" onClick={() => setSelected(null)}
-          className="panel fixed right-3 z-60 h-10 rounded-full px-5 text-sm font-medium max-sm:border-transparent max-sm:bg-transparent max-sm:backdrop-filter-none"
+        // Same pill and button as the panel buttons it replaces
+        <nav aria-label="Piece" className="panel fixed right-3 z-60 flex rounded-full p-1 max-sm:border-transparent max-sm:bg-transparent max-sm:backdrop-filter-none"
           style={{ top: phone ? 'calc(env(safe-area-inset-top, 0px) + 12px)' : 12 }}>
-          Done
-        </button>
+          <ToolButton icon={Check} label="Done" side={phone ? 'bottom' : 'left'} onClick={() => setSelected(null)} />
+        </nav>
       )}
 
       <PanelSheet open={panel !== null} title={current?.label} onClose={() => setPanel(null)} phone={phone}>

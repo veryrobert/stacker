@@ -1,13 +1,14 @@
-import type { ComponentType, ReactNode } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import { ArrowUpDown, BringToFront, Contrast, CopyPlus, Droplet, Palette, Plus, Scissors, SendToBack, Shapes, Stamp, Sun, Trash2, Waves } from 'lucide-react'
 import { Slider } from '@/components/ui/slider'
+import { ToolButton } from '@/components/shell/ToolButton'
+import { Toolbar, ToolbarSeparator } from '@/components/shell/Toolbar'
 import { Segmented } from '@/components/shell/Segmented'
 import { Swatches } from '@/components/shell/Swatches'
 import { CutPicker } from '@/components/CutIcon'
 import { TexturePicker } from '@/components/TexturePicker'
 import { CUTS, SWATCHES, type Piece } from '@/scene'
 import { BLENDS, type Blend, type TextureSource } from '@/textures'
-import { cn } from '@/lib/utils'
 
 // Editing one piece, as in Instagram and CapCut: tapping a piece swaps the bottom bar for that piece's
 // tools; tapping a tool opens one row of options above the bar and lights the tool (tap it again to
@@ -30,7 +31,7 @@ type Props = {
   onDelete: () => void
 }
 
-const TOOLS: { id: PieceTool; label: string; icon: ComponentType<{ className?: string; strokeWidth?: number }>; for: Piece['kind'][] }[] = [
+const TOOLS: { id: PieceTool; label: string; icon: LucideIcon; for: Piece['kind'][] }[] = [
   { id: 'shape', label: 'Shape', icon: Shapes, for: ['image', 'block'] },
   { id: 'edge', label: 'Edge', icon: Scissors, for: ['image', 'block'] },
   { id: 'colour', label: 'Colour', icon: Palette, for: ['block', 'circle', 'grid', 'cross'] },
@@ -48,34 +49,22 @@ export function PieceBar(p: Props) {
   const { piece, tool, onTool, update, commit } = p
   const tools = TOOLS.filter(t => t.for.includes(piece.kind))
   return (
-    <div className="flex w-[min(440px,calc(100vw-24px))] flex-col items-stretch gap-2">
-      {tool && <div className="panel rounded-2xl px-3 py-2.5">{options(p)}</div>}
-      <div role="toolbar" aria-label="Piece" className="panel flex items-center gap-0.5 overflow-x-auto rounded-2xl p-1 [scrollbar-width:none] max-sm:border-transparent max-sm:bg-transparent max-sm:backdrop-filter-none">
+    <div className="flex w-[min(440px,calc(100vw-24px))] flex-col items-center gap-2">
+      {/* Options for the open tool: the same frosted surface as the bars (bare on phones, like them) */}
+      {tool && <div className="panel w-full rounded-2xl px-3 py-2.5 max-sm:border-transparent max-sm:bg-transparent max-sm:backdrop-filter-none">{options(p)}</div>}
+      <Toolbar aria-label="Piece" className="max-w-full overflow-x-auto [scrollbar-width:none]">
         {piece.kind === 'image' && (
-          <BarButton label="B&W" pressed={piece.mono} onClick={() => { update({ mono: !piece.mono }); commit() }}>
-            <Contrast className="size-5" strokeWidth={1.5} />
-          </BarButton>
+          <ToolButton icon={Contrast} label="Black and white" side="top" active={piece.mono} onClick={() => { update({ mono: !piece.mono }); commit() }} />
         )}
         {tools.map(t => (
-          // The open tool stays lit; tap it again to close it, or another to switch
-          <BarButton key={t.id} label={t.label} pressed={tool === t.id} onClick={() => onTool(tool === t.id ? null : t.id)}><t.icon className="size-5" strokeWidth={1.5} /></BarButton>
+          // The open tool stays on; tap it again to close it, or another to switch
+          <ToolButton key={t.id} icon={t.icon} label={t.label} side="top" active={tool === t.id} className="shrink-0" onClick={() => onTool(tool === t.id ? null : t.id)} />
         ))}
-        <BarButton label="Duplicate" onClick={p.onDuplicate}><CopyPlus className="size-5" strokeWidth={1.5} /></BarButton>
-        <BarButton label="Delete" onClick={p.onDelete}><Trash2 className="size-5" strokeWidth={1.5} /></BarButton>
-      </div>
+        <ToolbarSeparator />
+        <ToolButton icon={CopyPlus} label="Duplicate" side="top" className="shrink-0" onClick={p.onDuplicate} />
+        <ToolButton icon={Trash2} label="Delete" side="top" className="shrink-0" onClick={p.onDelete} />
+      </Toolbar>
     </div>
-  )
-}
-
-// A tool in the bar: icon over a short label, as in CapCut
-function BarButton({ label, onClick, pressed, children }: { label: string; onClick: () => void; pressed?: boolean; children: ReactNode }) {
-  return (
-    <button type="button" onClick={onClick} aria-pressed={pressed} aria-label={label}
-      className={cn('flex min-w-14 shrink-0 flex-col items-center gap-1 rounded-xl px-1.5 py-1.5 text-[10px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        pressed ? 'bg-primary text-primary-foreground' : 'hover:bg-muted')}>
-      {children}
-      <span aria-hidden>{label}</span>
-    </button>
   )
 }
 
