@@ -25,6 +25,7 @@ import { deleteImage, deleteTextureFile, loadImage, loadScene, loadTextureFile, 
 import { BLENDS, BUILTIN_ORDER, builtinTextures, forgetTexture, loadScans, userTexture, type Blend, type TextureLayer, type TextureSource } from '@/textures'
 import { TexturePicker } from '@/components/TexturePicker'
 import { download, exportPng, exportVideo } from '@/export'
+import { thumbnail } from '@/components/shell/thumbnail'
 import { fetchSample, pickSamples } from '@/samples'
 
 const panels = [
@@ -299,6 +300,13 @@ export default function App() {
     setBusy(null)
     if (blob) download(blob, `stacker-${pngSize}.png`)
   }
+  // The index thumbnail: 16:10, the collage centred on black (see shell/thumbnail.ts)
+  const saveThumb = async () => {
+    setBusy('Rendering')
+    const blob = await exportPng(scene, images.current, textures, 2048)
+    setBusy(null)
+    if (blob) download(await thumbnail(blob), 'stacker-thumbnail.png')
+  }
   const saveVideo = async () => {
     setBusy('Recording 0%')
     const out = await exportVideo(scene, images.current, textures, Number(videoSize), f => setBusy(`Recording ${Math.round(f * 100)}%`))
@@ -528,6 +536,9 @@ export default function App() {
                 <Segmented label="Image size" value={pngSize} onChange={setPngSize} options={[{ value: '2048', label: '2048' }, { value: '4096', label: '4096' }]} />
               </Field>
               <Button variant="secondary" disabled={!!busy || !scene.pieces.length} onClick={savePng}>Save PNG</Button>
+            </FieldGroup>
+            <FieldGroup title="Thumbnail">
+              <Button variant="secondary" disabled={!!busy || !scene.pieces.length} onClick={saveThumb}>Save thumbnail</Button>
             </FieldGroup>
             <FieldGroup title="Animation">
               <Field label="Size">
