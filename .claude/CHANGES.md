@@ -1,5 +1,9 @@
 # Change Log
 
+## 2026-10-18 — Phone menu: rail on the right, actions at the bottom
+- On phones the panel buttons stay in a column top right (clear of the notch) instead of a second bar at the bottom
+- The actions bar sits alone along the bottom; the canvas keeps clear of both
+
 ## 2026-10-18 — Texture layers, blend modes and image adjustments
 - Up to three texture layers over the artboard: source, blend (multiply, overlay, soft, screen), amount, scale, neutral or original colour, plus fade
 - Textures prepared per blend mode: multiply lifts the base to white, screen pushes it to black, overlay centres on mid-grey
