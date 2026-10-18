@@ -21,14 +21,14 @@ export function CutIcon({ cut, className }: { cut: Cut; className?: string }) {
   )
 }
 
-// Pick a shape: one row of icon tiles at the toolbar's size (40px, 20px icons), the chosen one
-// inverted (as Segmented)
+// Pick a shape: a row of round buttons like the toolbar's (40px circles, 20px icons), the chosen one
+// filled as an active toolbar button is
 export function CutPicker({ value, onChange, options }: { value: Cut; onChange: (c: Cut) => void; options: { value: Cut; label: string }[] }) {
   return (
-    <div role="radiogroup" aria-label="Shape" className="grid grid-cols-8 gap-0.5 rounded-full bg-muted p-0.5">
+    <div role="radiogroup" aria-label="Shape" className="flex flex-wrap justify-center gap-0.5">
       {options.map(o => (
         <button key={o.value} type="button" role="radio" aria-checked={o.value === value} aria-label={o.label} title={o.label} onClick={() => onChange(o.value)}
-          className={cn('grid h-10 place-items-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring', o.value === value ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-background/40')}>
+          className={cn('grid size-10 place-items-center rounded-full outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring', o.value === value ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-accent')}>
           <CutIcon cut={o.value} />
         </button>
       ))}
