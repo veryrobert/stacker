@@ -69,11 +69,11 @@ export function PieceBar(p: Props) {
   )
 }
 
-// One slider with its name and value, compact
+// One slider with its name above, as in the panels (Field)
 function Row({ label, value, min = 0, max = 1, step = 0.01, onChange, onCommit }: { label: string; value: number; min?: number; max?: number; step?: number; onChange: (v: number) => void; onCommit: () => void }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="w-20 shrink-0 text-xs">{label}</span>
+    <div className="flex flex-col gap-1.5">
+      <span className="text-xs">{label}</span>
       <Slider aria-label={label} min={min} max={max} step={step} value={[value]} onValueChange={([v]) => onChange(v)} onValueCommit={onCommit} />
     </div>
   )
