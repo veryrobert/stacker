@@ -50,8 +50,9 @@ export function PieceBar(p: Props) {
   const tools = TOOLS.filter(t => t.for.includes(piece.kind))
   return (
     <div className="flex w-[min(440px,calc(100vw-24px))] flex-col items-center gap-2">
-      {/* Options for the open tool: the same frosted surface as the bars (bare on phones, like them) */}
-      {tool && <div className="panel w-full rounded-2xl px-3 py-2.5 max-sm:border-transparent max-sm:bg-transparent max-sm:backdrop-filter-none">{options(p)}</div>}
+      {/* Options for the open tool, unframed: the controls carry their own track, and the canvas moves
+          up to make room, so a card around them would only double the border */}
+      {tool && <div className="w-full px-1">{options(p)}</div>}
       <Toolbar aria-label="Piece" className="max-w-full overflow-x-auto [scrollbar-width:none]">
         {piece.kind === 'image' && (
           <ToolButton icon={Contrast} label="Black and white" side="top" active={piece.mono} onClick={() => { update({ mono: !piece.mono }); commit() }} />
