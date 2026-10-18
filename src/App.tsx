@@ -1,3 +1,4 @@
+import { CutIcon, CutPicker } from '@/components/CutIcon'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { BringToFront, Circle, Clapperboard, CopyPlus, Download, Frame, Grid3x3, ImagePlus, Images, Layers2, Play, Plus, SendToBack, Shuffle, Square, SquareMousePointer, Trash2, Undo2, Waves, X } from 'lucide-react'
 import { Slider } from '@/components/ui/slider'
@@ -16,11 +17,11 @@ import { PANEL_W, PHONE_SHEET, usePhone } from '@/components/shell/layout'
 import { Stage } from '@/components/Stage'
 import { prepareImage, type Img } from '@/render'
 import {
-  BG_SWATCHES, defaultScene, FORMATS, height, imagePiece, migratePiece, migrateTexture, newId, randomise, shapePiece, SWATCHES,
+  BG_SWATCHES, CUTS, type Cut, cutPiece, defaultScene, FORMATS, height, imagePiece, migratePiece, migrateTexture, newId, randomise, shapePiece, SWATCHES,
   type AnimStyle, type CrossStyle, type Format, type Piece, type Scene,
 } from '@/scene'
 import { deleteImage, deleteTextureFile, loadImage, loadScene, loadTextureFile, loadTextureList, saveImage, saveScene, saveTextureFile, saveTextureList } from '@/store'
-import { BLENDS, builtinTextures, forgetTexture, userTexture, type Blend, type TextureLayer, type TextureSource } from '@/textures'
+import { BLENDS, BUILTIN_ORDER, builtinTextures, forgetTexture, loadScans, userTexture, type Blend, type TextureLayer, type TextureSource } from '@/textures'
 import { TexturePicker } from '@/components/TexturePicker'
 import { download, exportPng, exportVideo } from '@/export'
 import { fetchSample, pickSamples } from '@/samples'
@@ -66,6 +67,11 @@ export default function App() {
   const [textures, setTextures] = useState<Map<string, TextureSource>>(() => new Map(builtinTextures().map(t => [t.id, t])))
   const textureList = [...textures.values()]
   useEffect(() => {
+    // The paper scans that ship with the app arrive in the background; built-ins stay first, in order
+    loadScans().then(scans => setTextures(m => {
+      const built = [...builtinTextures(), ...scans].sort((a, b) => BUILTIN_ORDER.indexOf(a.id) - BUILTIN_ORDER.indexOf(b.id))
+      return new Map([...built.map(t => [t.id, t] as const), ...[...m].filter(([, t]) => t.user)])
+    }))
     loadTextureList().then(async list => {
       for (const t of list ?? []) {
         const blob = await loadTextureFile(t.id)
@@ -199,6 +205,11 @@ export default function App() {
       setNote('Couldn’t reach the sample photos')
     }
     setBusy(null)
+  }
+  const addCut = (cut: Cut) => {
+    const p = cutPiece(cut, centre())
+    commit(s => ({ ...s, pieces: [...s.pieces, p] }))
+    setSelected(p.id)
   }
   const addShape = (kind: Exclude<Piece['kind'], 'image'>, cross?: CrossStyle) => {
     const p = shapePiece(kind, centre(), cross)
@@ -363,7 +374,13 @@ export default function App() {
             </p>
             <FieldGroup title="Shapes">
               <div className="grid grid-cols-3 gap-1.5">
-                {([['block', 'Block', Square], ['circle', 'Circle', Circle], ['grid', 'Grid', Grid3x3]] as const).map(([k, label, Icon]) => (
+                {CUTS.filter(c => c.value !== 'none').map(c => (
+                  <Button key={c.value} variant="secondary" className="h-16 flex-col gap-1.5 text-xs font-normal" onClick={() => addCut(c.value)}>
+                    <CutIcon cut={c.value} />
+                    {c.label}
+                  </Button>
+                ))}
+                {([['block', 'Block', Square], ['grid', 'Grid', Grid3x3]] as const).map(([k, label, Icon]) => (
                   <Button key={k} variant="secondary" className="h-16 flex-col gap-1.5 text-xs font-normal" onClick={() => addShape(k)}>
                     <Icon className="size-5" strokeWidth={1.5} />
                     {label}
@@ -426,10 +443,15 @@ export default function App() {
                 ))}
               </FieldGroup>
             )}
+            {piece.kind === 'block' && (
+              <FieldGroup title="Shape">
+                <CutPicker value={piece.crop} onChange={v => { updatePiece({ crop: v }); endGesture() }} options={CUTS} />
+              </FieldGroup>
+            )}
             {piece.kind === 'image' && (
               <FieldGroup title="Image">
-                <Field label="Crop">
-                  <Segmented label="Crop" value={piece.crop} onChange={v => { updatePiece({ crop: v }); endGesture() }} options={[{ value: 'none', label: 'As shot' }, { value: 'circle', label: 'Circle' }]} />
+                <Field label="Shape">
+                  <CutPicker value={piece.crop} onChange={v => { updatePiece({ crop: v }); endGesture() }} options={CUTS} />
                 </Field>
                 <Field label="Black and white">
                   <OnOff label="Black and white" value={piece.mono} onChange={v => { updatePiece({ mono: v }); endGesture() }} />

@@ -15,3 +15,5 @@ Built on [veryrobert/starter](https://github.com/veryrobert/starter): React, Typ
 npm install
 npm run dev
 ```
+
+Paper textures and torn-paper outlines are from [ambientCG](https://ambientcg.com), CC0 (public domain); see `public/textures/LICENSE.md`.

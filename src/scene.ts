@@ -5,6 +5,12 @@ import type { TextureLayer } from './textures'
 // partly or wholly outside the artboard; exports crop to it.
 
 export type Kind = 'image' | 'block' | 'circle' | 'grid' | 'cross'
+// Shapes a block or a photo can take, after the cut-paper references
+export type Cut = 'none' | 'circle' | 'half' | 'quarter' | 'triangle' | 'arch' | 'diamond' | 'pill'
+export const CUTS: { value: Cut; label: string }[] = [
+  { value: 'none', label: 'Square' }, { value: 'circle', label: 'Circle' }, { value: 'half', label: 'Half' }, { value: 'quarter', label: 'Quarter' },
+  { value: 'triangle', label: 'Triangle' }, { value: 'arch', label: 'Arch' }, { value: 'diamond', label: 'Diamond' }, { value: 'pill', label: 'Pill' },
+]
 export type CrossStyle = 'plus' | 'x' | 'reg'
 
 export type Piece = {
@@ -17,7 +23,7 @@ export type Piece = {
   rot: number // degrees
   color: string // blocks, circles, grids, crosses
   imageId?: string // images: key into the image store
-  crop: 'none' | 'circle' // images: as shot, or cut to a circle
+  crop: Cut // the piece's shape: blocks are filled in it, images cut out to it ('none' is a plain rectangle)
   mono: boolean // images: black and white
   texture: number // 0..1, how printed the piece looks (grain, paper, softened blacks)
   show: number // 0..1, how much shows through from underneath
@@ -100,6 +106,18 @@ const base = (p: Partial<Piece>): Piece => ({
 export function imagePiece(imageId: string, aspect: number, at: { x: number; y: number }, artH: number): Piece {
   const w = Math.min(0.85, 0.85 * artH * aspect)
   return base({ kind: 'image', imageId, x: at.x, y: at.y, w, h: w / aspect, texture: 0.35, show: 0.08 })
+}
+
+// A block cut to a shape, in proportions that suit it
+export function cutPiece(cut: Cut, at: { x: number; y: number }): Piece {
+  const size: Record<Cut, [number, number]> = {
+    none: [0.42, 0.62], circle: [0.36, 0.36], half: [0.44, 0.22], quarter: [0.34, 0.34],
+    triangle: [0.4, 0.36], arch: [0.32, 0.46], diamond: [0.34, 0.42], pill: [0.5, 0.2],
+  }
+  const [w, h] = size[cut]
+  // Each shape in its own colour from the swatches, so a few added together read apart
+  const color = SWATCHES[CUTS.findIndex(c => c.value === cut) % SWATCHES.length][0]
+  return base({ kind: 'block', crop: cut, x: at.x, y: at.y, w, h, color, texture: 0.3 })
 }
 
 export function shapePiece(kind: Exclude<Kind, 'image'>, at: { x: number; y: number }, cross: CrossStyle = 'plus'): Piece {

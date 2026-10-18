@@ -98,36 +98,39 @@ function pattern(g: CanvasRenderingContext2D, src: HTMLCanvasElement, unit: numb
   return p
 }
 
+import TORN from './torn.json'
+
 // ---------- Pieces ----------
 const hash = (s: string) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7)
 
-function shapePath(g: CanvasRenderingContext2D, p: Piece, w: number, h: number) {
+function shapePath(g: CanvasRenderingContext2D, p: Piece, w: number, h: number, grow = 1) {
   g.beginPath()
-  if (p.kind === 'circle' || (p.kind === 'image' && p.crop === 'circle')) {
-    const r = p.kind === 'circle' ? Math.min(w, h) / 2 : Math.min(w, h) / 2
-    g.ellipse(0, 0, p.kind === 'circle' ? w / 2 : r, p.kind === 'circle' ? h / 2 : r, 0, 0, Math.PI * 2)
-  } else if (p.edge === 'torn' && (p.kind === 'image' || p.kind === 'block')) tornRect(g, p, w, h)
-  else g.rect(-w / 2, -h / 2, w, h)
+  const L = (-w / 2) * grow, T = (-h / 2) * grow, W = w * grow, H = h * grow
+  const cut = p.kind === 'circle' ? 'circle' : p.crop
+  switch (cut) {
+    case 'circle':
+      // A photo cut to a circle stays round; a circle piece fills its box
+      if (p.kind === 'image') g.arc(0, 0, (Math.min(w, h) / 2) * grow, 0, Math.PI * 2)
+      else g.ellipse(0, 0, W / 2, H / 2, 0, 0, Math.PI * 2)
+      return
+    case 'half': g.moveTo(L, T + H); g.ellipse(0, T + H, W / 2, H, 0, Math.PI, 0); g.closePath(); return
+    case 'quarter': g.moveTo(L, T + H); g.ellipse(L, T + H, W, H, 0, -Math.PI / 2, 0); g.closePath(); return
+    case 'triangle': g.moveTo(0, T); g.lineTo(L + W, T + H); g.lineTo(L, T + H); g.closePath(); return
+    case 'arch': g.moveTo(L, T + H); g.lineTo(L, T + W / 2); g.ellipse(0, T + W / 2, W / 2, W / 2, 0, Math.PI, 0); g.lineTo(L + W, T + H); g.closePath(); return
+    case 'diamond': g.moveTo(0, T); g.lineTo(L + W, 0); g.lineTo(0, T + H); g.lineTo(L, 0); g.closePath(); return
+    case 'pill': g.roundRect(L, T, W, H, Math.min(W, H) / 2); return
+  }
+  if (p.edge === 'torn' && (p.kind === 'image' || p.kind === 'block')) tornPath(g, p, W, H)
+  else g.rect(L, T, W, H)
 }
 
-// A torn edge: small irregular bites along each side, the same every time for a given piece
-function tornRect(g: CanvasRenderingContext2D, p: Piece, w: number, h: number) {
-  let s = Math.abs(hash(p.id)) || 1
-  const r = () => (s = (s * 16807) % 2147483647) / 2147483647
-  const amp = Math.min(w, h) * 0.012, step = Math.max(3, Math.min(w, h) * 0.018)
-  const side = (x0: number, y0: number, x1: number, y1: number, nx: number, ny: number) => {
-    const len = Math.hypot(x1 - x0, y1 - y0), n = Math.max(2, Math.round(len / step))
-    for (let i = 1; i <= n; i++) {
-      const t = i / n, d = (r() - 0.35) * amp * (r() < 0.12 ? 2.4 : 1)
-      g.lineTo(x0 + (x1 - x0) * t - nx * d, y0 + (y1 - y0) * t - ny * d)
-    }
-  }
-  const L = -w / 2, R = w / 2, T = -h / 2, B = h / 2
-  g.moveTo(L, T)
-  side(L, T, R, T, 0, -1)
-  side(R, T, R, B, 1, 0)
-  side(R, B, L, B, 0, 1)
-  side(L, B, L, T, -1, 0)
+// A torn edge, traced from real torn paper (CC0, ambientCG): each piece takes the scan closest to its
+// own proportions (a few to choose between, picked by the piece, so it stays the same), stretched to fit
+function tornPath(g: CanvasRenderingContext2D, p: Piece, w: number, h: number) {
+  const aspect = w / h
+  const near = [...TORN].sort((a, b) => Math.abs(Math.log(a.aspect / aspect)) - Math.abs(Math.log(b.aspect / aspect))).slice(0, 4)
+  const shape = near[Math.abs(hash(p.id)) % near.length]
+  shape.points.forEach(([x, y], i) => (i ? g.lineTo : g.moveTo).call(g, -w / 2 + x * w, -h / 2 + y * h))
   g.closePath()
 }
 
@@ -245,6 +248,16 @@ function drawPiece(g: CanvasRenderingContext2D, p: Piece, unit: number, img: Img
   g.globalAlpha = 1 - p.show
   g.globalCompositeOperation = p.blend === 'multiply' ? 'multiply' : 'source-over'
   if (p.kind === 'image' || p.kind === 'block' || p.kind === 'circle') {
+    // Torn paper shows a thin white rim where the top layer tore away
+    if (p.edge === 'torn' && p.crop === 'none' && p.kind !== 'circle') {
+      g.save(); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1
+      shapePath(g, p, w, h, 1 + Math.max(0.012, 4 / Math.min(w, h)))
+      const paper = textures?.get('white')
+      const fill = paper && g.createPattern(paper.base, 'repeat')
+      if (fill) fill.setTransform(new DOMMatrix([unit / 1400, 0, 0, unit / 1400, 0, 0]))
+      g.fillStyle = fill || '#f3f1ec'; g.fill()
+      g.restore()
+    }
     shapePath(g, p, w, h)
     g.save(); g.clip(); drawContent(g, p, w, h, img, unit); g.restore()
   } else drawContent(g, p, w, h, img, unit)

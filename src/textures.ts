@@ -123,6 +123,28 @@ export function builtinTextures(): TextureSource[] {
   return builtins
 }
 
+// Paper scans that ship with the app (CC0, ambientCG; see public/textures/LICENSE.md), loaded in the
+// background. A file that's missing is simply left out of the picker.
+const SCANS = [
+  { id: 'white', name: 'White paper', file: 'paper-white.jpg', span: 0.6 },
+  { id: 'flecked', name: 'Flecked paper', file: 'paper-flecked.jpg', span: 0.6 },
+  { id: 'crumpled', name: 'Crumpled paper', file: 'paper-crumpled.jpg', span: 1 },
+]
+export const BUILTIN_ORDER = ['white', 'flecked', 'crumpled', 'grain', 'paper', 'knit', 'dots', 'halftone']
+export async function loadScans(): Promise<TextureSource[]> {
+  const found = await Promise.all(SCANS.map(async t => {
+    try {
+      const el = new Image()
+      el.src = `${import.meta.env.BASE_URL}textures/${t.file}`
+      await el.decode()
+      return { ...userTexture(t.id, t.name, el), user: false, span: t.span }
+    } catch {
+      return null
+    }
+  }))
+  return found.filter((t): t is TextureSource => t !== null)
+}
+
 // A loaded scan: kept to a sensible size; one copy covers the artboard at scale 1
 export function userTexture(id: string, name: string, el: HTMLImageElement): TextureSource {
   const k = Math.min(1, 2400 / Math.max(el.naturalWidth, el.naturalHeight))
