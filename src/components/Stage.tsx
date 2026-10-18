@@ -48,11 +48,12 @@ type Gesture =
   | { mode: 'pinch'; id: string; d0: number; a0: number; w0: number; h0: number; r0: number }
 
 // The notch inset in px (env() only resolves on a real property, so measure a probe)
-function safeAreaTop() {
+function safeArea() {
   const el = document.createElement('div')
-  el.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top, 0px)'
+  el.style.cssText = 'position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top, 0px);padding-bottom:env(safe-area-inset-bottom, 0px)'
   document.body.appendChild(el)
-  const v = parseFloat(getComputedStyle(el).paddingTop) || 0
+  const cs = getComputedStyle(el)
+  const v = { top: parseFloat(cs.paddingTop) || 0, bottom: parseFloat(cs.paddingBottom) || 0 }
   el.remove()
   return v
 }
@@ -73,15 +74,15 @@ export function Stage({ scene, images, textures, version, selected, onSelect, on
 
   // The artboard fitted into the space left by the bars and any open panel
   // On phones it sits under the panel rail (a 48px row top right, below the notch) with 12px edges
-  const safeTop = useMemo(() => (phone ? safeAreaTop() : 0), [phone, size.w, size.h])
-  const margin = phone ? { l: 12, r: 12, t: safeTop + 12 + 48 + 12, b: 72 } : { l: 72, r: 72, t: 36, b: 104 }
+  const safe = useMemo(() => (phone ? safeArea() : { top: 0, bottom: 0 }), [phone, size.w, size.h])
+  // On phones the canvas sits centred between the menu row (72 with its gaps) and the actions bar
+  // (68), clear of the notch and the home bar, as in the other apps
+  const margin = phone ? { l: 12, r: 12, t: safe.top + 72, b: safe.bottom + 68 } : { l: 72, r: 72, t: 36, b: 104 }
   const availW = Math.max(80, size.w - margin.l - margin.r - inset.right)
   const availH = Math.max(80, size.h - margin.t - margin.b - (inset.bottom ? inset.bottom - margin.b + 24 : 0))
   const H = height(scene)
   const unit = Math.min(availW, availH / H)
-  const ab = phone
-    ? { x: margin.l + (availW - unit) / 2, y: margin.t, w: unit, h: unit * H }
-    : { x: margin.l + (availW - unit) / 2, y: margin.t + (availH - unit * H) / 2, w: unit, h: unit * H }
+  const ab = { x: margin.l + (availW - unit) / 2, y: margin.t + (availH - unit * H) / 2, w: unit, h: unit * H }
 
   // Arrival preview
   useEffect(() => {
