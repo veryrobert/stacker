@@ -16,6 +16,7 @@ type Props = {
   inset: { right: number; bottom: number } // space taken by an open panel
   phone: boolean
   play: number // bump to preview the arrival animation
+  grid: boolean // subtle grid lines on the artboard (shown anyway while a piece is selected)
   onPlayEnd: () => void
 }
 
@@ -58,7 +59,7 @@ function safeArea() {
   return v
 }
 
-export function Stage({ scene, images, textures, version, selected, onSelect, onChange, onCommit, onDropFiles, inset, phone, play, onPlayEnd }: Props) {
+export function Stage({ scene, images, textures, version, selected, onSelect, onChange, onCommit, onDropFiles, inset, phone, play, grid, onPlayEnd }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null)
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight })
   const [time, setTime] = useState<number | null>(null) // arrival preview clock
@@ -128,6 +129,19 @@ export function Stage({ scene, images, textures, version, selected, onSelect, on
     g.lineWidth = 1
     g.strokeRect(ab.x - 0.5, ab.y - 0.5, ab.w + 1, ab.h + 1)
     g.restore()
+    // Subtle grid lines to line pieces up: twelve square cells across, while editing a piece or when
+    // switched on (never in exports)
+    if (time === null && (grid || selected)) {
+      const step = ab.w / 12
+      g.save()
+      g.beginPath()
+      for (let x = step; x < ab.w - 1; x += step) { g.moveTo(Math.round(ab.x + x) + 0.5, ab.y); g.lineTo(Math.round(ab.x + x) + 0.5, ab.y + ab.h) }
+      for (let y = step; y < ab.h - 1; y += step) { g.moveTo(ab.x, Math.round(ab.y + y) + 0.5); g.lineTo(ab.x + ab.w, Math.round(ab.y + y) + 0.5) }
+      g.strokeStyle = 'rgba(255,255,255,0.07)'
+      g.lineWidth = 1
+      g.stroke()
+      g.restore()
+    }
     // Selection frame and handles (never in exports)
     const p = scene.pieces.find(q => q.id === selected)
     if (p && time === null) {
@@ -149,7 +163,7 @@ export function Stage({ scene, images, textures, version, selected, onSelect, on
       }
       g.restore()
     }
-  }, [scene, images, textures, version, selected, size, unit, ab.x, ab.y, ab.w, ab.h, time])
+  }, [scene, images, textures, version, selected, size, unit, ab.x, ab.y, ab.w, ab.h, time, grid])
 
   // Screen point to artboard units
   const toArt = (sx: number, sy: number) => ({ x: (sx - ab.x) / unit, y: (sy - ab.y) / unit })

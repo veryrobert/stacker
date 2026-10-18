@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ToolButton } from '@/components/shell/ToolButton'
 import { Toolbar, ToolbarSeparator } from '@/components/shell/Toolbar'
-import { Segmented } from '@/components/shell/Segmented'
+import { OnOff, Segmented } from '@/components/shell/Segmented'
 import { Field, FieldGroup } from '@/components/shell/Field'
 import { Swatches } from '@/components/shell/Swatches'
 import { Splash } from '@/components/shell/Splash'
@@ -56,6 +56,9 @@ function decode(blob: Blob): Promise<HTMLImageElement> {
 export default function App() {
   const [scene, setScene] = useState<Scene>(defaultScene)
   const [selected, setSelected] = useState<string | null>(null)
+  // Grid lines on the artboard, as in tessera: off by default (they show anyway while editing a piece)
+  const [grid, setGrid] = useState(() => { try { return localStorage.getItem('stacker:grid') === 'on' } catch { return false } })
+  useEffect(() => { try { localStorage.setItem('stacker:grid', grid ? 'on' : 'off') } catch { /* storage unavailable */ } }, [grid])
   // Editing one piece happens in the bottom bar (PieceBar): which of its tools is open
   const [pieceTool, setPieceTool] = useState<PieceTool | null>(null)
   useEffect(() => { setPieceTool(null); if (selected) setPanel(null) }, [selected])
@@ -322,6 +325,7 @@ export default function App() {
         textures={textures}
         version={version}
         selected={selected}
+        grid={grid}
         onSelect={setSelected}
         onChange={livePatch}
         onCommit={endGesture}
@@ -425,6 +429,9 @@ export default function App() {
             </Field>
             <Field label="Outside the canvas">
               <Segmented label="Outside the canvas" value={scene.outside} onChange={v => setScene(sc => ({ ...sc, outside: v }))} options={[{ value: 'hide', label: 'Hide' }, { value: 'show', label: 'Show' }]} />
+            </Field>
+            <Field label="Grid lines">
+              <OnOff label="Grid lines" value={grid} onChange={setGrid} />
             </Field>
           </FieldGroup>
         )}
