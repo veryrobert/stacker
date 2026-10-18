@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  BringToFront, Circle, Clapperboard, Copy, Dices, Images, Download, Frame, Grid3x3, ImagePlus, Layers2, Play, Plus, SendToBack, Shuffle, SlidersHorizontal,
-  Square, Trash2, Undo2, Waves, X,
-} from 'lucide-react'
+import { BringToFront, Circle, Clapperboard, CopyPlus, Download, Frame, Grid3x3, ImagePlus, Images, Layers2, Play, Plus, SendToBack, Shuffle, Square, SquareMousePointer, Trash2, Undo2, Waves, X } from 'lucide-react'
 import { Slider } from '@/components/ui/slider'
 import { Button } from '@/components/ui/button'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -30,7 +27,7 @@ import { fetchSample, pickSamples } from '@/samples'
 
 const panels = [
   { id: 'add', label: 'Add', icon: Plus },
-  { id: 'piece', label: 'Piece', icon: SlidersHorizontal },
+  { id: 'piece', label: 'Piece', icon: SquareMousePointer },
   { id: 'canvas', label: 'Canvas', icon: Frame },
   { id: 'texture', label: 'Texture', icon: Waves },
   { id: 'motion', label: 'Motion', icon: Clapperboard },
@@ -546,7 +543,7 @@ export default function App() {
                     <Segmented label="Order" value={scene.anim.order} onChange={v => setAnim({ order: v })} options={[{ value: 'stack', label: 'Stacking' }, { value: 'random', label: 'Random' }]} />
                   </div>
                   {scene.anim.order === 'random' && (
-                    <ToolButton icon={Dices} label="New random order" side="top" className="size-8" onClick={() => setAnim({ seed: Math.floor(Math.random() * 1e9) })} />
+                    <ToolButton icon={Shuffle} label="New random order" side="top" className="size-8" onClick={() => setAnim({ seed: Math.floor(Math.random() * 1e9) })} />
                   )}
                 </div>
               </Field>
@@ -589,7 +586,7 @@ export default function App() {
             <>
               <ToolButton icon={BringToFront} label="Bring to front" side="top" onClick={() => reorder('front')} />
               <ToolButton icon={SendToBack} label="Send to back" side="top" onClick={() => reorder('back')} />
-              <ToolButton icon={Copy} label="Duplicate" side="top" onClick={duplicate} />
+              <ToolButton icon={CopyPlus} label="Duplicate" side="top" onClick={duplicate} />
               <ToolButton icon={Trash2} label="Delete" side="top" onClick={remove} />
             </>
           ) : (

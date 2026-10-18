@@ -28,9 +28,10 @@ export type Piece = {
   cross: CrossStyle
 }
 
+// The shared order (see CLAUDE.md); values are width over height. Starts on 4:5.
 export const FORMATS = {
-  '4:5': 4 / 5,
   '1:1': 1,
+  '4:5': 4 / 5,
   '9:16': 9 / 16,
   '16:9': 16 / 9,
   A4: 1 / Math.SQRT2,
