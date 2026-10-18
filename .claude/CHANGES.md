@@ -1,5 +1,9 @@
 # Change Log
 
+## 2026-10-18 — Phone menus are just icons
+- On phones the top-right row and the bottom bar drop their grey pill and border; desktop keeps them
+- Gentler texture to start: about half the grain, paper, fade and print feel on new collages and pieces
+
 ## 2026-10-18 — Phone menu: a row top right, actions at the bottom
 - On phones the panel buttons sit in a row top right (clear of the notch) instead of a second bar at the bottom
 - The actions bar sits alone along the bottom; the content sits between the two
@@ -12,11 +16,3 @@
 - Per-piece texture with its own blend and amount, clipped to the piece
 - Image adjustments: saturation, contrast, brightness
 - Finer dots and halftone screen
-
-## 2026-10-18 — First push: stacker
-- Collage maker on the starter: photos (dropped, pasted or Unsplash samples) and shapes (blocks, circles, grids, crosses) on an artboard
-- Figma-style handles: corner squares scale from the opposite corner, rotate just outside any corner, cursors to match
-- Each piece: show-through, texture, multiply, circle crop, black and white, optional torn edge; images arrive printed and fill the board
-- Randomise spreads pieces over the board, straight by default; artboard textures; outside the canvas hidden by default
-- Motion on a beat with no fades: pop, bump, window, build; adjustable beat and hold; PNG and video export
-- Starts on a subtle off-black; saved in the browser
