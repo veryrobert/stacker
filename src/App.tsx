@@ -116,7 +116,8 @@ export default function App() {
   useEffect(() => {
     loadScene().then(async s => {
       if (s?.pieces) {
-        setScene({ ...defaultScene, ...s, pieces: s.pieces.map(migratePiece), texture: migrateTexture(s.texture), anim: { ...defaultScene.anim, ...s.anim } })
+        // Saved on the old default off-black, move to the shared one
+        setScene({ ...defaultScene, ...s, bg: s.bg === '#0e0e0e' ? '#141414' : s.bg, pieces: s.pieces.map(migratePiece), texture: migrateTexture(s.texture), anim: { ...defaultScene.anim, ...s.anim } })
         for (const p of s.pieces) if (p.imageId && !images.current.has(p.imageId)) {
           const blob = await loadImage(p.imageId)
           if (blob) { images.current.set(p.imageId, prepareImage(await decode(blob))); setVersion(v => v + 1) }

@@ -59,7 +59,7 @@ export type Scene = {
 
 export const defaultScene: Scene = {
   format: '4:5',
-  bg: '#0e0e0e', // a very subtle off-black, just apart from the page
+  bg: '#141414', // the shared off-black (as tessera's ink), just apart from the page
   pieces: [],
   texture: {
     layers: [
@@ -80,7 +80,7 @@ export const SWATCHES = [
 ] as const
 
 export const BG_SWATCHES = [
-  ['#0e0e0e', 'Off black'], ['#f4f1ea', 'Paper'], ['#ffffff', 'White'], ['#e9e4d8', 'Cream'], ['#d9d2c4', 'Stone'],
+  ['#141414', 'Off black'], ['#f4f1ea', 'Paper'], ['#ffffff', 'White'], ['#e9e4d8', 'Cream'], ['#d9d2c4', 'Stone'],
   ['#1b1b1b', 'Ink'], ['#2f6b35', 'Green'],
 ] as const
 
