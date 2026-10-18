@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react'
-import { ArrowUpDown, BringToFront, ChevronLeft, Contrast, CopyPlus, Droplet, Palette, Plus, Scissors, SendToBack, Shapes, Stamp, Sun, Trash2, Waves } from 'lucide-react'
+import { ArrowUpDown, BringToFront, Contrast, CopyPlus, Droplet, Palette, Plus, Scissors, SendToBack, Shapes, Stamp, Sun, Trash2, Waves } from 'lucide-react'
 import { Slider } from '@/components/ui/slider'
 import { Segmented } from '@/components/shell/Segmented'
 import { Swatches } from '@/components/shell/Swatches'
@@ -10,8 +10,8 @@ import { BLENDS, type Blend, type TextureSource } from '@/textures'
 import { cn } from '@/lib/utils'
 
 // Editing one piece, as in Instagram and CapCut: tapping a piece swaps the bottom bar for that piece's
-// tools; tapping a tool opens one row of options above the bar; back steps out of a tool, and Done
-// (top right) or tapping the empty board steps out of the piece. Moving,
+// tools; tapping a tool opens one row of options above the bar and lights the tool (tap it again to
+// close it); Done (top right) or tapping the empty board steps out of the piece. Moving,
 // resizing and turning stay on the canvas.
 
 export type PieceTool = 'shape' | 'edge' | 'colour' | 'texture' | 'adjust' | 'fade' | 'print' | 'mark' | 'order'
@@ -47,30 +47,21 @@ const TEX_DEFAULT = { blend: 'multiply' as Blend, amount: 0.5, scale: 1, colour:
 export function PieceBar(p: Props) {
   const { piece, tool, onTool, update, commit } = p
   const tools = TOOLS.filter(t => t.for.includes(piece.kind))
-  const current = TOOLS.find(t => t.id === tool)
   return (
     <div className="flex w-[min(440px,calc(100vw-24px))] flex-col items-stretch gap-2">
       {tool && <div className="panel rounded-2xl px-3 py-2.5">{options(p)}</div>}
       <div role="toolbar" aria-label="Piece" className="panel flex items-center gap-0.5 overflow-x-auto rounded-2xl p-1 [scrollbar-width:none] max-sm:border-transparent max-sm:bg-transparent max-sm:backdrop-filter-none">
-        {tool ? (
-          <>
-            <BarButton label="Back" onClick={() => onTool(null)}><ChevronLeft className="size-5" strokeWidth={1.5} /></BarButton>
-            <span className="px-2 text-xs text-muted-foreground">{current?.label}</span>
-          </>
-        ) : (
-          <>
-            {piece.kind === 'image' && (
-              <BarButton label="B&W" pressed={piece.mono} onClick={() => { update({ mono: !piece.mono }); commit() }}>
-                <Contrast className="size-5" strokeWidth={1.5} />
-              </BarButton>
-            )}
-            {tools.map(t => (
-              <BarButton key={t.id} label={t.label} onClick={() => onTool(t.id)}><t.icon className="size-5" strokeWidth={1.5} /></BarButton>
-            ))}
-            <BarButton label="Duplicate" onClick={p.onDuplicate}><CopyPlus className="size-5" strokeWidth={1.5} /></BarButton>
-            <BarButton label="Delete" onClick={p.onDelete}><Trash2 className="size-5" strokeWidth={1.5} /></BarButton>
-          </>
+        {piece.kind === 'image' && (
+          <BarButton label="B&W" pressed={piece.mono} onClick={() => { update({ mono: !piece.mono }); commit() }}>
+            <Contrast className="size-5" strokeWidth={1.5} />
+          </BarButton>
         )}
+        {tools.map(t => (
+          // The open tool stays lit; tap it again to close it, or another to switch
+          <BarButton key={t.id} label={t.label} pressed={tool === t.id} onClick={() => onTool(tool === t.id ? null : t.id)}><t.icon className="size-5" strokeWidth={1.5} /></BarButton>
+        ))}
+        <BarButton label="Duplicate" onClick={p.onDuplicate}><CopyPlus className="size-5" strokeWidth={1.5} /></BarButton>
+        <BarButton label="Delete" onClick={p.onDelete}><Trash2 className="size-5" strokeWidth={1.5} /></BarButton>
       </div>
     </div>
   )
