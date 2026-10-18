@@ -85,7 +85,7 @@ function options({ piece, tool, update, commit, textures, onLoadTexture, onRemov
     case 'shape':
       return <CutPicker value={piece.crop} onChange={v => { update({ crop: v }); commit() }} options={CUTS} />
     case 'edge':
-      return <Segmented label="Edge" value={piece.edge} onChange={v => { update({ edge: v, ...(v === 'torn' ? { crop: 'none' } : {}) }); commit() }} options={[{ value: 'clean', label: 'Clean' }, { value: 'torn', label: 'Torn' }]} />
+      return <Segmented size="lg" label="Edge" value={piece.edge} onChange={v => { update({ edge: v, ...(v === 'torn' ? { crop: 'none' } : {}) }); commit() }} options={[{ value: 'clean', label: 'Clean' }, { value: 'torn', label: 'Torn' }]} />
     case 'colour':
       return <Swatches label="Colour" value={piece.color} onChange={v => { update({ color: v }); commit() }} colours={SWATCHES} />
     case 'texture':
@@ -97,7 +97,7 @@ function options({ piece, tool, update, commit, textures, onLoadTexture, onRemov
             onRemove={onRemoveTexture} />
           {piece.tex && (
             <>
-              <Segmented label="Texture blend" value={piece.tex.blend} onChange={(v: Blend) => { update({ tex: { ...piece.tex!, blend: v } }); commit() }} options={BLENDS} />
+              <Segmented size="lg" label="Texture blend" value={piece.tex.blend} onChange={(v: Blend) => { update({ tex: { ...piece.tex!, blend: v } }); commit() }} options={BLENDS} />
               <Row label="Amount" value={piece.tex.amount} onChange={v => update({ tex: { ...piece.tex!, amount: v } })} onCommit={commit} />
             </>
           )}
@@ -115,18 +115,18 @@ function options({ piece, tool, update, commit, textures, onLoadTexture, onRemov
       return (
         <div className="flex flex-col gap-2.5">
           <Row label="Show through" value={piece.show} onChange={v => update({ show: v })} onCommit={commit} />
-          <Segmented label="Blend" value={piece.blend} onChange={v => { update({ blend: v }); commit() }} options={[{ value: 'normal', label: 'Normal' }, { value: 'multiply', label: 'Multiply' }]} />
+          <Segmented size="lg" label="Blend" value={piece.blend} onChange={v => { update({ blend: v }); commit() }} options={[{ value: 'normal', label: 'Normal' }, { value: 'multiply', label: 'Multiply' }]} />
         </div>
       )
     case 'print':
       return <Row label="Print feel" value={piece.texture} onChange={v => update({ texture: v })} onCommit={commit} />
     case 'mark':
-      return <Segmented label="Mark" value={piece.cross} onChange={v => { update({ cross: v }); commit() }} options={[{ value: 'plus', label: 'Plus' }, { value: 'x', label: 'Cross' }, { value: 'reg', label: 'Register' }]} />
+      return <Segmented size="lg" label="Mark" value={piece.cross} onChange={v => { update({ cross: v }); commit() }} options={[{ value: 'plus', label: 'Plus' }, { value: 'x', label: 'Cross' }, { value: 'reg', label: 'Register' }]} />
     case 'order':
       return (
         <div className="grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => onReorder('front')} className="flex items-center justify-center gap-2 rounded-lg bg-muted py-2 text-xs"><BringToFront className="size-4" strokeWidth={1.5} />To front</button>
-          <button type="button" onClick={() => onReorder('back')} className="flex items-center justify-center gap-2 rounded-lg bg-muted py-2 text-xs"><SendToBack className="size-4" strokeWidth={1.5} />To back</button>
+          <button type="button" onClick={() => onReorder('front')} className="flex h-10 items-center justify-center gap-2 rounded-full bg-muted text-xs"><BringToFront className="size-4" strokeWidth={1.5} />To front</button>
+          <button type="button" onClick={() => onReorder('back')} className="flex h-10 items-center justify-center gap-2 rounded-full bg-muted text-xs"><SendToBack className="size-4" strokeWidth={1.5} />To back</button>
         </div>
       )
     default:
