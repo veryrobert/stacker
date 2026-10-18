@@ -22,10 +22,10 @@ export function CutIcon({ cut, className }: { cut: Cut; className?: string }) {
 }
 
 // Pick a shape: a row of round buttons like the toolbar's (40px circles, 20px icons), the chosen one
-// filled as an active toolbar button is
+// filled as an active toolbar button is; in the toolbar's own pill
 export function CutPicker({ value, onChange, options }: { value: Cut; onChange: (c: Cut) => void; options: { value: Cut; label: string }[] }) {
   return (
-    <div role="radiogroup" aria-label="Shape" className="flex flex-wrap justify-center gap-0.5">
+    <div role="radiogroup" aria-label="Shape" className="panel mx-auto flex w-fit max-w-full flex-wrap justify-center gap-0.5 rounded-full p-1 max-sm:border-transparent max-sm:bg-transparent max-sm:backdrop-filter-none">
       {options.map(o => (
         <button key={o.value} type="button" role="radio" aria-checked={o.value === value} aria-label={o.label} title={o.label} onClick={() => onChange(o.value)}
           className={cn('grid size-10 place-items-center rounded-full outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring', o.value === value ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-accent')}>
